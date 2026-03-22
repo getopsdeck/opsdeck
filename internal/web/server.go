@@ -217,6 +217,11 @@ func (s *Server) cachedExtract(path string) (intel.SessionSummary, intel.Session
 
 	// Phase 3: store under lock.
 	s.cacheMu.Lock()
+	// Simple cache eviction: if cache grows beyond 100 entries, clear it.
+	// This prevents unbounded memory growth for long-running web servers.
+	if len(s.cache) > 100 {
+		s.cache = make(map[string]cachedSummary)
+	}
 	s.cache[path] = cachedSummary{modTime: info.ModTime(), summary: summary, cost: cost}
 	s.cacheMu.Unlock()
 
