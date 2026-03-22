@@ -341,11 +341,12 @@ func FormatBrief(summary SessionSummary) string {
 		b.WriteString(strings.Join(parts, " | ") + "\n")
 	}
 
-	// Activities.
-	if len(summary.Activities) > 0 {
+	// Activities -- condensed into human-readable summaries.
+	condensed := SummarizeActivities(summary.Activities)
+	if len(condensed) > 0 {
 		b.WriteString("Activities:\n")
-		for _, a := range summary.Activities {
-			b.WriteString(fmt.Sprintf("  [%s] %s\n", a.Type, a.Description))
+		for _, line := range condensed {
+			b.WriteString(fmt.Sprintf("  * %s\n", line))
 		}
 	}
 

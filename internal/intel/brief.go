@@ -84,7 +84,7 @@ func buildProjectBrief(proj discovery.Project, projectsDir string, since time.Ti
 	}
 
 	filesSet := make(map[string]struct{})
-	var allActivities []string
+	var allActivities []Activity
 	var attentionReasons []string
 
 	for _, sess := range proj.Sessions {
@@ -113,9 +113,7 @@ func buildProjectBrief(proj discovery.Project, projectsDir string, since time.Ti
 		for _, f := range summary.FilesChanged {
 			filesSet[f] = struct{}{}
 		}
-		for _, a := range summary.Activities {
-			allActivities = append(allActivities, a.Description)
-		}
+		allActivities = append(allActivities, summary.Activities...)
 	}
 
 	// Deduplicate and sort files.
@@ -124,12 +122,8 @@ func buildProjectBrief(proj discovery.Project, projectsDir string, since time.Ti
 	}
 	sort.Strings(pb.FilesChanged)
 
-	// Take up to 5 key activities.
-	if len(allActivities) > 5 {
-		pb.KeyActivities = allActivities[:5]
-	} else {
-		pb.KeyActivities = allActivities
-	}
+	// Condense raw activities into human-readable summaries (max 5).
+	pb.KeyActivities = SummarizeActivities(allActivities)
 
 	if len(attentionReasons) > 0 {
 		pb.NeedsAttention = true
@@ -198,8 +192,11 @@ func FormatDailyBrief(brief DailyBrief) string {
 	b.WriteString(fmt.Sprintf("Period: %s\n", brief.Period))
 
 	if brief.TotalSessions > 0 {
-		b.WriteString(fmt.Sprintf("Active: %d of %d sessions across %d projects\n",
-			brief.ActiveSessions, brief.TotalSessions, len(brief.Projects)))
+		// Executive summary: one-line overview.
+		b.WriteString(fmt.Sprintf("You worked across %d projects, made %d edits, ran %d commands.\n",
+			len(brief.Projects), brief.TotalEdits, brief.TotalCommands))
+		b.WriteString(fmt.Sprintf("Sessions: %d active of %d total\n",
+			brief.ActiveSessions, brief.TotalSessions))
 	} else {
 		b.WriteString("No sessions found.\n")
 	}
