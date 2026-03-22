@@ -1,10 +1,13 @@
 # OpsDeck
 
-**Monitor all your Claude Code sessions from a single terminal.**
+**Chief of Staff for Claude Code** — monitor all your sessions from a single terminal.
+
+![OpsDeck Demo](demo.gif)
 
 Running 8+ Claude Code sessions? Lost track of which one is waiting for you,
 which one is still working, and which one crashed 20 minutes ago? OpsDeck gives
-you a real-time dashboard of every Claude Code session on your machine.
+you a real-time dashboard, daily brief, and productivity metrics for every
+Claude Code session on your machine.
 
 ```
  OpsDeck                                               12 sessions | 3 projects
