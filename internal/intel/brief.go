@@ -538,6 +538,21 @@ func FormatDailyBrief(brief DailyBrief) string {
 		b.WriteString(fmt.Sprintf("\nTODAY'S SPEND: ~$%.0f est. (opsdeck costs for accurate pricing)\n", brief.CostEstimate))
 	}
 
+	// --- Quick action: resume the most urgent session ---
+	if len(waitEntries) > 0 {
+		// Find the session ID for the top priority waiting session.
+		for _, p := range brief.Projects {
+			for _, ws := range p.WaitingSessions {
+				id := ws.SessionID
+				if len(id) > 12 {
+					id = id[:12]
+				}
+				b.WriteString(fmt.Sprintf("\nQUICK ACTION: opsdeck resume %s\n", id))
+				return b.String()
+			}
+		}
+	}
+
 	return b.String()
 }
 
