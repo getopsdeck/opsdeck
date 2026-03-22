@@ -36,6 +36,12 @@ type SessionView struct {
 	LastRequest  string   `json:"last_request,omitempty"`
 }
 
+// cachedSummary holds a cached transcript summary keyed by modtime.
+type cachedSummary struct {
+	modTime time.Time
+	summary intel.SessionSummary
+}
+
 // Snapshot holds the current state of all sessions, refreshed periodically.
 type Snapshot struct {
 	mu       sync.RWMutex
@@ -49,6 +55,11 @@ type Server struct {
 	addr     string
 	snapshot *Snapshot
 	mux      *http.ServeMux
+
+	// Transcript summary cache: path -> cachedSummary.
+	// Avoids re-parsing unchanged transcripts every 3 seconds.
+	cacheMu sync.Mutex
+	cache   map[string]cachedSummary
 }
 
 // NewServer creates a new web dashboard server.
@@ -57,6 +68,7 @@ func NewServer(addr string) *Server {
 		addr:     addr,
 		snapshot: &Snapshot{},
 		mux:      http.NewServeMux(),
+		cache:    make(map[string]cachedSummary),
 	}
 	s.routes()
 	return s
@@ -132,10 +144,10 @@ func (s *Server) refresh() {
 			WorkingOn: workingOn,
 		}
 
-		// Lightweight stats (no full transcript parse on refresh).
+		// Use cached transcript summary to avoid re-parsing unchanged files.
 		if transcriptPath != "" {
-			summary, err := intel.ExtractSummary(transcriptPath)
-			if err == nil && summary.TotalMessages > 0 {
+			summary := s.cachedExtract(transcriptPath)
+			if summary.TotalMessages > 0 {
 				view.EditCount = summary.EditCount
 				view.BashCount = summary.BashCount
 				view.ErrorCount = summary.ErrorCount
@@ -154,6 +166,30 @@ func (s *Server) refresh() {
 	s.snapshot.projects = projects
 	s.snapshot.updated = time.Now()
 	s.snapshot.mu.Unlock()
+}
+
+// cachedExtract returns a transcript summary, using a cache keyed by file
+// modification time to avoid re-parsing unchanged transcripts.
+func (s *Server) cachedExtract(path string) intel.SessionSummary {
+	info, err := os.Stat(path)
+	if err != nil {
+		return intel.SessionSummary{}
+	}
+
+	s.cacheMu.Lock()
+	defer s.cacheMu.Unlock()
+
+	if cached, ok := s.cache[path]; ok && cached.modTime.Equal(info.ModTime()) {
+		return cached.summary
+	}
+
+	summary, err := intel.ExtractSummary(path)
+	if err != nil {
+		return intel.SessionSummary{}
+	}
+
+	s.cache[path] = cachedSummary{modTime: info.ModTime(), summary: summary}
+	return summary
 }
 
 // handleAPISessions returns the current session list as JSON.
