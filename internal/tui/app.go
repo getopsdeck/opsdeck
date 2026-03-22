@@ -40,6 +40,10 @@ type App struct {
 
 	// Styles.
 	styles Styles
+
+	// ResumeSessionID is set when the user presses R to resume a session.
+	// The caller checks this after p.Run() returns and executes the resume.
+	ResumeSessionID string
 }
 
 // NewApp creates a new App model. It discovers real Claude Code sessions
@@ -148,7 +152,7 @@ func (a *App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, a.keys.Resume):
 		sel := a.table.SelectedSession()
 		if sel != nil {
-			// Return a command to launch claude --resume in the session's CWD.
+			a.ResumeSessionID = sel.ID
 			return a, tea.Quit
 		}
 

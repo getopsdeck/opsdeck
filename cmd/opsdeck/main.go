@@ -87,10 +87,17 @@ func main() {
 		}
 	}
 
-	p := tea.NewProgram(tui.NewApp())
+	app := tui.NewApp()
+	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	// If the user pressed R to resume a session, launch it.
+	if app.ResumeSessionID != "" {
+		os.Args = []string{"opsdeck", "resume", app.ResumeSessionID}
+		runResume()
 	}
 }
 
