@@ -239,6 +239,25 @@ const dashboardHTML = `<!DOCTYPE html>
     margin-left: 12px;
     opacity: 0.9;
   }
+  .brief-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .brief-header {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--blue);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .brief-header:hover { background: var(--bg-highlight); }
+  .brief-body { padding: 0 16px 12px; }
+  .brief-attention { color: var(--yellow); margin: 4px 0; font-size: 13px; }
+  .brief-update { color: var(--fg); margin: 4px 0; font-size: 13px; }
+  .brief-idle { color: var(--fg-dark); margin: 4px 0; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -248,6 +267,14 @@ const dashboardHTML = `<!DOCTYPE html>
 </header>
 <div class="container">
   <div class="stats" id="stats"></div>
+  <div class="brief-card" id="brief-card">
+    <div class="brief-header" onclick="toggleBrief()">
+      Morning Brief <span id="brief-toggle">&#9656;</span>
+    </div>
+    <div class="brief-body" id="brief-body" style="display:none">
+      <div id="brief-content">Loading...</div>
+    </div>
+  </div>
   <input class="search-bar" id="search" type="text" placeholder="Search by project, session ID, or activity..." autocomplete="off">
   <table>
     <thead>
@@ -529,7 +556,62 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+function toggleBrief() {
+  const body = document.getElementById('brief-body');
+  const toggle = document.getElementById('brief-toggle');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  toggle.innerHTML = open ? '&#9662;' : '&#9656;';
+}
+
+function loadBrief() {
+  fetch('/api/brief')
+    .then(r => r.json())
+    .then(brief => {
+      const content = document.getElementById('brief-content');
+      const parts = [];
+
+      // Attention items
+      if (brief.Attention && brief.Attention.length > 0) {
+        brief.Attention.forEach(a => {
+          parts.push('<div class="brief-attention">&#9888; ' + escapeHtml(a) + '</div>');
+        });
+      }
+
+      // Project updates
+      if (brief.Projects && brief.Projects.length > 0) {
+        brief.Projects.forEach(p => {
+          if (p.NeedsAttention) return; // already in attention
+          if (p.KeyActivities && p.KeyActivities.length > 0) {
+            const act = p.KeyActivities[0];
+            parts.push('<div class="brief-update"><b>' + escapeHtml(p.Name) + ':</b> ' + escapeHtml(act) + '</div>');
+          } else if (p.SessionCount > 0) {
+            parts.push('<div class="brief-idle"><b>' + escapeHtml(p.Name) + ':</b> ' + p.SessionCount + ' session' + (p.SessionCount !== 1 ? 's' : '') + ', idle</div>');
+          }
+        });
+      }
+
+      // Total spend
+      if (brief.TotalEdits || brief.TotalCommands) {
+        const summary = [];
+        if (brief.TotalEdits) summary.push(brief.TotalEdits + ' edits');
+        if (brief.TotalCommands) summary.push(brief.TotalCommands + ' commands');
+        parts.push('<div class="brief-idle" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">' + summary.join(', ') + ' today across ' + brief.TotalSessions + ' session' + (brief.TotalSessions !== 1 ? 's' : '') + '</div>');
+      }
+
+      if (parts.length === 0) {
+        content.innerHTML = '<div class="brief-idle">No activity to report yet today.</div>';
+      } else {
+        content.innerHTML = parts.join('');
+      }
+    })
+    .catch(() => {
+      document.getElementById('brief-content').innerHTML = '<div class="brief-idle">Brief unavailable.</div>';
+    });
+}
+
 connect();
+loadBrief();
 </script>
 </body>
 </html>`
