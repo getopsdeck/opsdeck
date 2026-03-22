@@ -141,6 +141,7 @@ Flags:
   brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
   brief --verbose (-V)       Use detailed format instead of secretary brief
   list --json                Output session data as JSON for scripting
+  list --active (-a)         Show only busy and waiting sessions
   costs --since <duration>   Only include costs from last N hours
 
 OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
@@ -357,12 +358,19 @@ func runList() {
 	projects := discovery.GroupByProject(sessions)
 
 	if jsonOutput {
-		// JSON output: use monitor.Snapshot for enriched data.
 		enriched := monitor.Snapshot(sessionsDir, projectsDir)
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		enc.Encode(enriched)
 		return
+	}
+
+	// Check for --active flag: only show busy/waiting.
+	activeOnly := false
+	for _, arg := range os.Args[2:] {
+		if arg == "--active" || arg == "-a" {
+			activeOnly = true
+		}
 	}
 
 	fmt.Printf("%-14s %-12s %-8s %-18s %s\n", "SESSION", "PROJECT", "STATE", "BRANCH", "STARTED")
@@ -387,6 +395,11 @@ func runList() {
 			}
 			if branch == "" {
 				branch = "-"
+			}
+
+			// Skip non-active sessions in --active mode.
+			if activeOnly && state != discovery.StateBusy && state != discovery.StateWaiting {
+				continue
 			}
 
 			id := s.ID
