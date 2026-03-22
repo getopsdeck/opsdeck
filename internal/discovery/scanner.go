@@ -97,68 +97,42 @@ func projectName(cwd string) string {
 }
 
 // GroupByProject groups a flat list of sessions into Project values, keyed by
-// ProjectName. When multiple distinct CWDs share the same basename (e.g.
-// "/work/api" and "/personal/api"), the project names are expanded to
-// "parent/basename" to prevent identity collisions. Unique basenames remain
-// short. The returned slice is sorted alphabetically by project name.
+// CWD. When multiple distinct CWDs share the same basename, their display names
+// are expanded to include up to 3 path components (e.g. "work/api" instead of
+// "api") until all names are unique.
+//
+// The returned slice is sorted alphabetically by project name.
 func GroupByProject(sessions []Session) []Project {
-	// Pass 1: group by basename, tracking distinct CWDs per basename.
-	type basenameGroup struct {
-		cwds     map[string]struct{} // distinct CWDs seen
-		sessions []Session
-	}
-	byBase := make(map[string]*basenameGroup)
-
+	// First pass: group sessions by CWD so each unique working directory gets
+	// exactly one Project entry.
+	byCWD := make(map[string]*Project)
 	for _, s := range sessions {
-		name := s.ProjectName
-		if name == "" {
-			name = "(unknown)"
+		cwd := s.CWD
+		if cwd == "" {
+			cwd = "(unknown)"
 		}
-
-		g, ok := byBase[name]
+		p, ok := byCWD[cwd]
 		if !ok {
-			g = &basenameGroup{cwds: make(map[string]struct{})}
-			byBase[name] = g
+			p = &Project{
+				Path: cwd,
+			}
+			byCWD[cwd] = p
 		}
-		g.cwds[s.CWD] = struct{}{}
-		g.sessions = append(g.sessions, s)
+		p.Sessions = append(p.Sessions, s)
 	}
 
-	// Pass 2: detect collisions and build final projects.
-	byName := make(map[string]*Project)
-
-	for basename, g := range byBase {
-		collides := len(g.cwds) > 1
-
-		for i := range g.sessions {
-			s := &g.sessions[i]
-			name := basename
-
-			if collides {
-				expanded := expandedName(s.CWD)
-				if expanded != "" {
-					name = expanded
-				}
-				// else: CWD has no parent component, keep basename
-			}
-
-			// Update the session's ProjectName to match the resolved name.
-			s.ProjectName = name
-
-			p, ok := byName[name]
-			if !ok {
-				p = &Project{
-					Name: name,
-					Path: s.CWD,
-				}
-				byName[name] = p
-			}
-			p.Sessions = append(p.Sessions, *s)
-		}
+	// Collect the distinct CWDs so we can run disambiguation.
+	cwds := make([]string, 0, len(byCWD))
+	for cwd := range byCWD {
+		cwds = append(cwds, cwd)
 	}
 
-	projects := make([]Project, 0, len(byName))
-	for _, p := range byName {
+	const maxLevels = 3
+	names := disambiguateNames(cwds, maxLevels)
+
+	projects := make([]Project, 0, len(byCWD))
+	for cwd, p := range byCWD {
+		p.Name = names[cwd]
 		projects = append(projects, *p)
 	}
 
@@ -169,20 +143,47 @@ func GroupByProject(sessions []Session) []Project {
 	return projects
 }
 
-// expandedName returns "parent/basename" for a path, or empty string if the
-// path has no parent directory (e.g. "/" or a single component).
-func expandedName(cwd string) string {
-	if cwd == "" {
-		return ""
-	}
-	parent := filepath.Dir(cwd)
-	base := filepath.Base(cwd)
-	parentBase := filepath.Base(parent)
+// disambiguateNames assigns a short display name to each CWD path. It begins
+// with the basename of each path and progressively includes more parent
+// components (up to maxLevels) for any CWDs that still share a name.
+func disambiguateNames(cwds []string, maxLevels int) map[string]string {
+	names := make(map[string]string, len(cwds))
 
-	// If Dir returned "/" or ".", there is no meaningful parent to prepend.
-	if parentBase == "." || parentBase == "/" || parent == cwd {
-		return ""
+	nameAt := func(path string, n int) string {
+		if path == "" || path == "(unknown)" {
+			return "(unknown)"
+		}
+		parts := strings.Split(filepath.ToSlash(filepath.Clean(path)), "/")
+		if n >= len(parts) {
+			return strings.Join(parts, "/")
+		}
+		return strings.Join(parts[len(parts)-n:], "/")
 	}
 
-	return parentBase + "/" + base
+	depth := make(map[string]int, len(cwds))
+	for _, cwd := range cwds {
+		depth[cwd] = 1
+		names[cwd] = nameAt(cwd, 1)
+	}
+
+	for level := 1; level < maxLevels; level++ {
+		nameCount := make(map[string]int, len(cwds))
+		for _, cwd := range cwds {
+			nameCount[names[cwd]]++
+		}
+
+		anyExpanded := false
+		for _, cwd := range cwds {
+			if nameCount[names[cwd]] > 1 {
+				depth[cwd]++
+				names[cwd] = nameAt(cwd, depth[cwd])
+				anyExpanded = true
+			}
+		}
+		if !anyExpanded {
+			break
+		}
+	}
+
+	return names
 }
