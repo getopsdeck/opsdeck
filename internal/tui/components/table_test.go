@@ -231,3 +231,197 @@ func TestTruncate(t *testing.T) {
 		}
 	}
 }
+
+// --- Viewport / scroll tests ---
+
+// makeManySessions builds n sessions in a single project for viewport tests.
+func makeManySessions(n int) []TableSession {
+	now := time.Now()
+	sessions := make([]TableSession, n)
+	for i := range sessions {
+		sessions[i] = TableSession{
+			ID:        "sess_" + itoa(i),
+			PID:       2000 + i,
+			State:     "busy",
+			Project:   "BigProj",
+			StartedAt: now.Add(-time.Duration(i) * time.Minute),
+			WorkingOn: "task " + itoa(i),
+		}
+	}
+	return sessions
+}
+
+func TestMoveDownAdjustsOffset(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3) // only 3 visible rows
+
+	// Move cursor to row 3 (0-indexed), which is past visible area [0..2].
+	tbl.MoveDown() // cursor=1
+	tbl.MoveDown() // cursor=2
+	tbl.MoveDown() // cursor=3 => should scroll
+
+	if tbl.Offset < 1 {
+		t.Errorf("expected Offset >= 1 after scrolling down, got %d", tbl.Offset)
+	}
+	// Cursor should be visible: Offset <= Cursor < Offset+Height
+	if tbl.Cursor < tbl.Offset || tbl.Cursor >= tbl.Offset+tbl.Height {
+		t.Errorf("cursor %d is outside visible window [%d, %d)",
+			tbl.Cursor, tbl.Offset, tbl.Offset+tbl.Height)
+	}
+}
+
+func TestMoveUpAdjustsOffset(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3)
+
+	// Scroll down first to get a non-zero offset.
+	for i := 0; i < 6; i++ {
+		tbl.MoveDown()
+	}
+	// Now cursor=6, offset should be >= 4.
+	savedOffset := tbl.Offset
+
+	// Move up past the visible top.
+	for i := 0; i < 4; i++ {
+		tbl.MoveUp()
+	}
+	// cursor=2, offset should have decreased.
+	if tbl.Offset >= savedOffset {
+		t.Errorf("expected Offset to decrease after scrolling up, was %d now %d",
+			savedOffset, tbl.Offset)
+	}
+	if tbl.Cursor < tbl.Offset || tbl.Cursor >= tbl.Offset+tbl.Height {
+		t.Errorf("cursor %d is outside visible window [%d, %d)",
+			tbl.Cursor, tbl.Offset, tbl.Offset+tbl.Height)
+	}
+}
+
+func TestViewportClipsFlatRows(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3)
+	tbl.ProjectView = false
+
+	view := tbl.View()
+
+	// With Height=3 and Offset=0, only rows 0-2 should appear.
+	if !strings.Contains(view, "2000") {
+		t.Error("row 0 (PID 2000) should be visible")
+	}
+	if !strings.Contains(view, "2002") {
+		t.Error("row 2 (PID 2002) should be visible")
+	}
+	// Row 5 (PID 2005) should NOT be visible.
+	if strings.Contains(view, "2005") {
+		t.Error("row 5 (PID 2005) should NOT be visible with Height=3, Offset=0")
+	}
+}
+
+func TestViewportClipsAfterScroll(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3)
+	tbl.ProjectView = false
+
+	// Scroll down so offset advances.
+	for i := 0; i < 5; i++ {
+		tbl.MoveDown()
+	}
+	// cursor=5, offset should be 3 (window: rows 3,4,5).
+
+	view := tbl.View()
+
+	// Row 0 (PID 2000) should NOT be in the output.
+	if strings.Contains(view, "2000") {
+		t.Errorf("row 0 (PID 2000) should be scrolled away; offset=%d cursor=%d",
+			tbl.Offset, tbl.Cursor)
+	}
+	// Row at cursor should be visible.
+	cursorPID := itoa(2000 + tbl.Cursor)
+	if !strings.Contains(view, cursorPID) {
+		t.Errorf("cursor row (PID %s) should be visible", cursorPID)
+	}
+}
+
+func TestScrollDoesNotExceedBounds(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(5))
+	tbl.SetSize(100, 3)
+
+	// Scroll to bottom.
+	for i := 0; i < 10; i++ {
+		tbl.MoveDown()
+	}
+
+	if tbl.Cursor != 4 {
+		t.Errorf("cursor should clamp at 4, got %d", tbl.Cursor)
+	}
+	// Offset should not push window past last row.
+	if tbl.Offset+tbl.Height > len(tbl.Sessions) {
+		t.Errorf("offset %d + height %d exceeds session count %d",
+			tbl.Offset, tbl.Height, len(tbl.Sessions))
+	}
+
+	// Scroll back to top.
+	for i := 0; i < 10; i++ {
+		tbl.MoveUp()
+	}
+	if tbl.Offset != 0 {
+		t.Errorf("offset should be 0 after scrolling to top, got %d", tbl.Offset)
+	}
+}
+
+func TestViewportWithHeightZero(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(5))
+	tbl.SetSize(100, 0)
+	tbl.ProjectView = false
+
+	// Height 0 should not panic and should render all rows as fallback.
+	view := tbl.View()
+	if !strings.Contains(view, "2000") {
+		t.Error("with Height=0 (no viewport constraint), all rows should render")
+	}
+}
+
+func TestViewportWithHeightLargerThanSessions(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(3))
+	tbl.SetSize(100, 20)
+	tbl.ProjectView = false
+
+	view := tbl.View()
+
+	// All 3 rows should be visible when height > session count.
+	for i := 0; i < 3; i++ {
+		pid := itoa(2000 + i)
+		if !strings.Contains(view, pid) {
+			t.Errorf("row %d (PID %s) should be visible when height > count", i, pid)
+		}
+	}
+}
+
+func TestOffsetClampsOnSetSessions(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3)
+
+	// Scroll to bottom.
+	for i := 0; i < 9; i++ {
+		tbl.MoveDown()
+	}
+	// offset should be 7, cursor 9.
+
+	// Now shrink to 3 sessions.
+	tbl.SetSessions(makeManySessions(3))
+	if tbl.Offset > len(tbl.Sessions)-1 {
+		t.Errorf("offset %d should be clamped after shrinking to %d sessions",
+			tbl.Offset, len(tbl.Sessions))
+	}
+	if tbl.Cursor >= len(tbl.Sessions) {
+		t.Errorf("cursor %d should be clamped after shrinking to %d sessions",
+			tbl.Cursor, len(tbl.Sessions))
+	}
+}

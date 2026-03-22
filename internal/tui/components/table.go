@@ -83,12 +83,14 @@ func (m *TableModel) SetSize(width, height int) {
 	m.Height = height
 }
 
-// SetSessions replaces the session list.
+// SetSessions replaces the session list and clamps cursor/offset.
 func (m *TableModel) SetSessions(sessions []TableSession) {
 	m.Sessions = sessions
 	if m.Cursor >= len(sessions) {
 		m.Cursor = max(0, len(sessions)-1)
 	}
+	// Clamp offset so it does not exceed valid range.
+	m.clampOffset()
 }
 
 // SelectedSession returns the currently selected session, or nil.
@@ -103,17 +105,25 @@ func (m *TableModel) SelectedSession() *TableSession {
 	return &s
 }
 
-// MoveUp moves the cursor up by one row.
+// MoveUp moves the cursor up by one row, scrolling if needed.
 func (m *TableModel) MoveUp() {
 	if m.Cursor > 0 {
 		m.Cursor--
 	}
+	// Scroll up if cursor moved above the visible window.
+	if m.Cursor < m.Offset {
+		m.Offset = m.Cursor
+	}
 }
 
-// MoveDown moves the cursor down by one row.
+// MoveDown moves the cursor down by one row, scrolling if needed.
 func (m *TableModel) MoveDown() {
 	if m.Cursor < len(m.Sessions)-1 {
 		m.Cursor++
+	}
+	// Scroll down if cursor moved below the visible window.
+	if m.Height > 0 && m.Cursor >= m.Offset+m.Height {
+		m.Offset = m.Cursor - m.Height + 1
 	}
 }
 
@@ -179,9 +189,47 @@ func (m TableModel) renderGrouped(b *strings.Builder) {
 	}
 }
 
-// renderFlat renders sessions as a flat list.
+// clampOffset ensures Offset stays within valid bounds.
+func (m *TableModel) clampOffset() {
+	if m.Offset < 0 {
+		m.Offset = 0
+	}
+	if m.Height > 0 && len(m.Sessions) > 0 {
+		maxOffset := len(m.Sessions) - m.Height
+		if maxOffset < 0 {
+			maxOffset = 0
+		}
+		if m.Offset > maxOffset {
+			m.Offset = maxOffset
+		}
+	}
+}
+
+// visibleRange returns the [start, end) indices of sessions to render.
+// When Height is 0 (unset), all sessions are returned.
+func (m TableModel) visibleRange() (int, int) {
+	n := len(m.Sessions)
+	if n == 0 {
+		return 0, 0
+	}
+	if m.Height <= 0 {
+		return 0, n
+	}
+	start := m.Offset
+	if start < 0 {
+		start = 0
+	}
+	end := start + m.Height
+	if end > n {
+		end = n
+	}
+	return start, end
+}
+
+// renderFlat renders sessions as a flat list, clipped to the viewport.
 func (m TableModel) renderFlat(b *strings.Builder) {
-	for i := range m.Sessions {
+	start, end := m.visibleRange()
+	for i := start; i < end; i++ {
 		b.WriteString(m.renderRow(i))
 		b.WriteString("\n")
 	}
