@@ -5,9 +5,11 @@
 ![OpsDeck Demo](demo.gif)
 
 Running 8+ Claude Code sessions? Lost track of which one is waiting for you,
-which one is still working, and which one crashed 20 minutes ago? OpsDeck gives
-you a real-time dashboard, daily brief, and productivity metrics for every
-Claude Code session on your machine.
+which one is still working, and which one crashed 20 minutes ago?
+
+OpsDeck gives you a real-time TUI dashboard, a browser-based web dashboard,
+daily briefs, productivity metrics, cost analytics, and an AI-powered morning
+summary — all from a single Go binary with zero config.
 
 ```
  OpsDeck                                               12 sessions | 3 projects
