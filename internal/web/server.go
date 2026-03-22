@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,6 +85,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/", s.handleDashboard)
 	s.mux.HandleFunc("/api/sessions", s.handleAPISessions)
 	s.mux.HandleFunc("/api/session/", s.handleAPISessionDetail)
+	s.mux.HandleFunc("/api/timeline/", s.handleAPITimeline)
 	s.mux.HandleFunc("/api/brief", s.handleAPIBrief)
 	s.mux.HandleFunc("/api/events", s.handleSSE)
 }
@@ -278,6 +280,44 @@ func (s *Server) handleAPISessionDetail(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(target)
+}
+
+// handleAPITimeline returns timeline events for a session.
+func (s *Server) handleAPITimeline(w http.ResponseWriter, r *http.Request) {
+	sessionID := strings.TrimPrefix(r.URL.Path, "/api/timeline/")
+	if sessionID == "" {
+		http.Error(w, "missing session ID", http.StatusBadRequest)
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	projectsDir := filepath.Join(home, ".claude", "projects")
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+
+	// Find the transcript for this session.
+	raw, _ := discovery.ScanSessions(sessionsDir)
+	for _, rs := range raw {
+		if rs.ID == sessionID {
+			transcriptPath := discovery.FindTranscriptPath(projectsDir, rs.CWD, rs.ID)
+			if transcriptPath == "" {
+				http.Error(w, "no transcript found", http.StatusNotFound)
+				return
+			}
+
+			since := time.Now().Add(-24 * time.Hour)
+			timeline, err := intel.ExtractTimeline(transcriptPath, since)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(timeline)
+			return
+		}
+	}
+
+	http.Error(w, "session not found", http.StatusNotFound)
 }
 
 // handleAPIBrief returns the daily brief as JSON.

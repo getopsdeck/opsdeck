@@ -147,6 +147,61 @@ const dashboardHTML = `<!DOCTYPE html>
     font-size: 12px;
     margin-top: 8px;
   }
+  .timeline-container {
+    margin-top: 12px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    display: none;
+  }
+  .timeline-container.open { display: block; }
+  .timeline-title {
+    font-size: 13px;
+    color: var(--fg-dark);
+    margin-bottom: 8px;
+  }
+  .timeline-bar {
+    height: 24px;
+    display: flex;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bg-highlight);
+    margin-bottom: 6px;
+  }
+  .timeline-segment {
+    min-width: 2px;
+    height: 100%;
+    position: relative;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .timeline-segment:hover { opacity: 0.7; }
+  .tl-tool { background: var(--blue); }
+  .tl-text { background: var(--green); }
+  .tl-user { background: var(--cyan); }
+  .tl-error { background: var(--red); }
+  .tl-idle { background: var(--bg-highlight); }
+  .timeline-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--fg-dark);
+    margin-top: 4px;
+  }
+  .timeline-legend span::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .tl-legend-tool::before { background: var(--blue); }
+  .tl-legend-text::before { background: var(--green); }
+  .tl-legend-user::before { background: var(--cyan); }
+  .tl-legend-error::before { background: var(--red); }
   .empty {
     text-align: center;
     padding: 60px 0;
@@ -212,6 +267,16 @@ const dashboardHTML = `<!DOCTYPE html>
     <div class="detail-stats" id="detail-stats"></div>
     <ul class="activity-list" id="detail-activities"></ul>
     <div id="detail-request" style="margin-top:12px;color:var(--fg-dark);font-size:13px"></div>
+  </div>
+  <div class="timeline-container" id="timeline">
+    <div class="timeline-title" id="timeline-title">Session Timeline (last 24h)</div>
+    <div class="timeline-bar" id="timeline-bar"></div>
+    <div class="timeline-legend">
+      <span class="tl-legend-tool">Tool calls</span>
+      <span class="tl-legend-text">Text output</span>
+      <span class="tl-legend-user">User input</span>
+      <span class="tl-legend-error">Errors</span>
+    </div>
   </div>
   <div class="last-updated" id="last-updated"></div>
 </div>
@@ -339,7 +404,11 @@ function formatStats(s) {
 function selectSession(id) {
   selectedId = selectedId === id ? null : id;
   const panel = document.getElementById('detail');
-  if (!selectedId) { panel.classList.remove('open'); return; }
+  if (!selectedId) {
+    panel.classList.remove('open');
+    document.getElementById('timeline').classList.remove('open');
+    return;
+  }
 
   fetch('/api/session/' + id)
     .then(r => r.json())
@@ -368,12 +437,51 @@ function selectSession(id) {
         s.last_request ? '<b>Last request:</b> ' + escapeHtml(s.last_request) : '';
 
       panel.classList.add('open');
+
+      // Fetch and render timeline.
+      loadTimeline(id);
     });
 
   // Re-render to update selected row
   document.querySelectorAll('#sessions tr').forEach(tr => {
     tr.classList.toggle('selected', tr.onclick && tr.querySelector('td:nth-child(3)')?.textContent === id.substring(0,12));
   });
+}
+
+function loadTimeline(sessionId) {
+  const container = document.getElementById('timeline');
+  const bar = document.getElementById('timeline-bar');
+
+  fetch('/api/timeline/' + sessionId)
+    .then(r => r.json())
+    .then(tl => {
+      if (!tl.events || tl.events.length === 0) {
+        container.classList.remove('open');
+        return;
+      }
+
+      bar.innerHTML = '';
+      const totalDuration = tl.events.reduce((sum, e) => sum + Math.max(e.duration, 1), 0);
+
+      tl.events.forEach(e => {
+        const seg = document.createElement('div');
+        const pct = Math.max((Math.max(e.duration, 1) / totalDuration) * 100, 0.3);
+        seg.className = 'timeline-segment tl-' + e.type;
+        seg.style.width = pct + '%';
+        seg.title = e.type + (e.tool ? ': ' + e.tool : '') +
+          ' (' + e.duration + 's) ' +
+          new Date(e.timestamp).toLocaleTimeString();
+        bar.appendChild(seg);
+      });
+
+      document.getElementById('timeline-title').textContent =
+        'Session Timeline \u2014 ' + tl.events.length + ' events, ' +
+        new Date(tl.started_at).toLocaleTimeString() + ' \u2013 ' +
+        new Date(tl.ended_at).toLocaleTimeString();
+
+      container.classList.add('open');
+    })
+    .catch(() => container.classList.remove('open'));
 }
 
 function timeAgo(date) {
