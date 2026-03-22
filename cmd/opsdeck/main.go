@@ -144,7 +144,8 @@ Flags:
   costs --since <duration>   Only include costs from last N hours
 
 OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
-read-only — it never modifies your sessions or sends data anywhere.
+read-only — it never modifies your sessions. All data stays local
+(except ai-brief, which pipes data through claude -p).
 
 GitHub: https://github.com/getopsdeck/opsdeck
 `, version)

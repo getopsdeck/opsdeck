@@ -401,8 +401,9 @@ func FormatDailyBrief(brief DailyBrief) string {
 
 	// --- NEEDS YOUR ATTENTION: waiting sessions ---
 	type waitEntry struct {
-		line string
-		dur  time.Duration
+		line      string
+		dur       time.Duration
+		sessionID string
 	}
 	var waitEntries []waitEntry
 	for _, p := range brief.Projects {
@@ -418,7 +419,7 @@ func FormatDailyBrief(brief DailyBrief) string {
 				msg := truncate(ws.LastUserMsg, 40)
 				line += " -- doing: " + msg
 			}
-			waitEntries = append(waitEntries, waitEntry{line: line, dur: dur})
+			waitEntries = append(waitEntries, waitEntry{line: line, dur: dur, sessionID: ws.SessionID})
 		}
 	}
 	// Sort by wait duration descending (longest waiting first).
@@ -539,19 +540,13 @@ func FormatDailyBrief(brief DailyBrief) string {
 		b.WriteString(fmt.Sprintf("\nTODAY'S SPEND: ~$%.0f est. (opsdeck costs for accurate pricing)\n", brief.CostEstimate))
 	}
 
-	// --- Quick action: resume the most urgent session ---
+	// --- Quick action: resume the most urgent session (matches recommendation) ---
 	if len(waitEntries) > 0 {
-		// Find the session ID for the top priority waiting session.
-		for _, p := range brief.Projects {
-			for _, ws := range p.WaitingSessions {
-				id := ws.SessionID
-				if len(id) > 12 {
-					id = id[:12]
-				}
-				b.WriteString(fmt.Sprintf("\nQUICK ACTION: opsdeck resume %s\n", id))
-				return b.String()
-			}
+		id := waitEntries[0].sessionID
+		if len(id) > 12 {
+			id = id[:12]
 		}
+		b.WriteString(fmt.Sprintf("\nQUICK ACTION: opsdeck resume %s\n", id))
 	}
 
 	return b.String()

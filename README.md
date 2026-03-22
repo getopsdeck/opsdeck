@@ -42,12 +42,10 @@ summary — all from a single Go binary with zero config.
 ## Install
 
 ```bash
-# Homebrew (macOS / Linux)
-brew install getopsdeck/tap/opsdeck
-
-# Or with Go
 go install github.com/getopsdeck/opsdeck/cmd/opsdeck@latest
 ```
+
+Or download a binary from the [releases page](https://github.com/getopsdeck/opsdeck/releases).
 
 Requires Go 1.26+ for source builds. No other dependencies.
 
@@ -176,9 +174,11 @@ State classification:
 
 ## Privacy
 
-OpsDeck never sends data anywhere. It reads local session files on disk and
-checks process liveness via the OS. There is no network access, no telemetry,
-no analytics. Everything stays on your machine.
+OpsDeck reads local session files and checks process liveness via the OS.
+There is no telemetry and no analytics. All data stays on your machine.
+
+The one exception is `opsdeck ai-brief`, which pipes session data through
+`claude -p` for AI summarization. This is opt-in and clearly marked.
 
 ## Comparison
 
