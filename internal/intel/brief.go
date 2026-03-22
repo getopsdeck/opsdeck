@@ -521,7 +521,7 @@ func FormatDailyBrief(brief DailyBrief) string {
 
 	// --- Cost estimate ---
 	if brief.CostEstimate > 0 {
-		b.WriteString(fmt.Sprintf("\nTODAY'S SPEND: ~$%.0f estimated\n", brief.CostEstimate))
+		b.WriteString(fmt.Sprintf("\nTODAY'S SPEND: ~$%.0f est. (opsdeck costs for accurate pricing)\n", brief.CostEstimate))
 	}
 
 	return b.String()
