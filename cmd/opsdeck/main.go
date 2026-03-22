@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/getopsdeck/opsdeck/internal/discovery"
 	"github.com/getopsdeck/opsdeck/internal/intel"
+	"github.com/getopsdeck/opsdeck/internal/monitor"
 	"github.com/getopsdeck/opsdeck/internal/tui"
 	"github.com/getopsdeck/opsdeck/internal/web"
 )
@@ -184,9 +185,20 @@ func checkSessions(sessionsDir, projectsDir string, lastStates map[string]string
 
 			switch state {
 			case "waiting":
-				fmt.Printf("[%s] ◐ %s (%s) is now WAITING — needs your attention\n", now, rs.ProjectName, id)
-				// macOS notification if available.
-				notifyMac(rs.ProjectName + " needs attention", "Session "+id+" is waiting for input")
+				// Try to get the last assistant message to show what it's waiting for.
+				hint := ""
+				if transcriptPath != "" {
+					hint = monitor.ReadLastMeaningfulLine(transcriptPath)
+					if len([]rune(hint)) > 60 {
+						hint = string([]rune(hint)[:57]) + "..."
+					}
+				}
+				if hint != "" {
+					fmt.Printf("[%s] ◐ %s (%s) is now WAITING — %s\n", now, rs.ProjectName, id, hint)
+				} else {
+					fmt.Printf("[%s] ◐ %s (%s) is now WAITING — needs your attention\n", now, rs.ProjectName, id)
+				}
+				notifyMac(rs.ProjectName + " needs attention", "Session "+id+": "+hint)
 			case "dead":
 				fmt.Printf("[%s] ✕ %s (%s) session DIED\n", now, rs.ProjectName, id)
 			case "busy":
