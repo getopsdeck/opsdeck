@@ -268,6 +268,7 @@ const dashboardHTML = `<!DOCTYPE html>
     <div class="detail-stats" id="detail-stats"></div>
     <ul class="activity-list" id="detail-activities"></ul>
     <div id="detail-request" style="margin-top:12px;color:var(--fg-dark);font-size:13px"></div>
+    <div id="detail-resume" style="margin-top:12px"></div>
   </div>
   <div class="timeline-container" id="timeline">
     <div class="timeline-title" id="timeline-title">Session Timeline (last 24h)</div>
@@ -445,6 +446,14 @@ function selectSession(id) {
 
       document.getElementById('detail-request').innerHTML =
         s.last_request ? '<b>Last request:</b> ' + escapeHtml(s.last_request) : '';
+
+      // Resume command button.
+      const resumeCmd = 'opsdeck resume ' + s.id.substring(0, 12);
+      document.getElementById('detail-resume').innerHTML =
+        '<button onclick="navigator.clipboard.writeText(\'' + resumeCmd + '\').then(()=>this.textContent=\'Copied!\')" ' +
+        'style="background:var(--bg-highlight);color:var(--cyan);border:1px solid var(--border);border-radius:4px;' +
+        'padding:4px 12px;font-family:monospace;font-size:12px;cursor:pointer">' +
+        '\u2398 ' + escapeHtml(resumeCmd) + '</button>';
 
       panel.classList.add('open');
       panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

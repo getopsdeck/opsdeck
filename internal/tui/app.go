@@ -283,6 +283,14 @@ func (a *App) updateDetail() {
 			stats = append(stats, fmt.Sprintf("%d messages", summary.TotalMessages))
 			lines = append(lines, a.styles.StatusKey.Render("Stats:   ")+strings.Join(stats, " | "))
 
+			// Cost estimate.
+			if sel.TranscriptPath != "" {
+				cost, err := intel.ExtractCosts(sel.TranscriptPath, time.Now().Add(-24*time.Hour))
+				if err == nil && cost.EstCostUSD > 0 {
+					lines = append(lines, a.styles.StatusKey.Render("Cost:    ")+fmt.Sprintf("$%.2f today", cost.EstCostUSD))
+				}
+			}
+
 			// Condensed activity bullets.
 			condensed := intel.SummarizeActivities(summary.Activities)
 			if len(condensed) > 0 {
