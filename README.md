@@ -72,6 +72,9 @@ opsdeck brief --since 48h   # last 2 days
 # Productivity metrics — today vs yesterday comparison
 opsdeck metrics
 
+# Cost analytics — token usage and estimated spend per session
+opsdeck costs
+
 # Web dashboard — browser-based UI with real-time updates
 opsdeck web                # opens http://localhost:7070
 opsdeck web :8080          # custom port
@@ -139,8 +142,8 @@ State classification:
 ## Roadmap
 
 - **v0.1** -- Core TUI dashboard + daily brief + productivity metrics
-- **v0.3** -- Web dashboard with SSE real-time updates (current)
-- **v0.4** -- Cost analytics: token usage and estimated spend per session
+- **v0.3** -- Web dashboard with SSE real-time updates
+- **v0.4** -- Cost analytics: token usage and estimated spend per session (current)
 - **v0.5** -- AI-powered brief: distill and summarize via `claude -p` (opt-in)
 
 ## Privacy
@@ -163,7 +166,7 @@ no analytics. Everything stays on your machine.
 | Session activity detail   | Yes     | No           | No      | No           |
 | Zero config               | Yes     | No           | Yes     | Yes          |
 | Read-only / non-invasive  | Yes     | No (manages) | Yes     | Yes          |
-| Cost analytics            | Planned | No           | Yes     | Yes          |
+| Cost analytics            | Yes     | No           | Yes     | Yes          |
 | Keyboard navigation       | Yes     | Yes          | No      | No           |
 
 OpsDeck is designed to complement your existing workflow. It does not manage or
