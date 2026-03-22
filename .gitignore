@@ -36,3 +36,4 @@ Thumbs.db
 # GoReleaser
 dist/
 .\!*
+.claude/cache/
