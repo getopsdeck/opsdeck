@@ -95,7 +95,15 @@ func main() {
 	app := tui.NewApp()
 	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if strings.Contains(err.Error(), "TTY") {
+			fmt.Fprintln(os.Stderr, "Error: TUI requires a terminal. Try one of:")
+			fmt.Fprintln(os.Stderr, "  opsdeck web     — browser dashboard")
+			fmt.Fprintln(os.Stderr, "  opsdeck list    — compact session list")
+			fmt.Fprintln(os.Stderr, "  opsdeck brief   — daily briefing")
+			fmt.Fprintln(os.Stderr, "  opsdeck help    — all commands")
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 		os.Exit(1)
 	}
 
