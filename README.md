@@ -72,6 +72,10 @@ opsdeck brief --since 48h   # last 2 days
 # Productivity metrics — today vs yesterday comparison
 opsdeck metrics
 
+# Web dashboard — browser-based UI with real-time updates
+opsdeck web                # opens http://localhost:7070
+opsdeck web :8080          # custom port
+
 # Version
 opsdeck version
 ```
@@ -134,10 +138,10 @@ State classification:
 
 ## Roadmap
 
-- **v0.1** -- Core TUI dashboard + daily brief + productivity metrics (current)
-- **v0.2** -- Cost analytics: token usage and estimated spend per session
-- **v0.3** -- Web dashboard: browser-based UI alongside the TUI
-- **v0.4** -- AI-powered brief: distill and summarize via `claude -p` (opt-in)
+- **v0.1** -- Core TUI dashboard + daily brief + productivity metrics
+- **v0.3** -- Web dashboard with SSE real-time updates (current)
+- **v0.4** -- Cost analytics: token usage and estimated spend per session
+- **v0.5** -- AI-powered brief: distill and summarize via `claude -p` (opt-in)
 
 ## Privacy
 
@@ -150,6 +154,7 @@ no analytics. Everything stays on your machine.
 | Feature                   | OpsDeck | claude-squad | ccusage | Claud-ometer |
 |---------------------------|---------|--------------|---------|--------------|
 | Real-time TUI dashboard   | Yes     | Yes          | No      | No           |
+| Web dashboard             | Yes     | No           | No      | No           |
 | Auto-discovers sessions   | Yes     | No (managed) | Yes     | Yes          |
 | Session state detection   | Yes     | Yes          | No      | Partial      |
 | Project grouping          | Yes     | No           | No      | No           |
