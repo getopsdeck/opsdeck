@@ -97,9 +97,17 @@ func projectName(cwd string) string {
 }
 
 // GroupByProject groups a flat list of sessions into Project values, keyed by
-// ProjectName. The returned slice is sorted alphabetically by project name.
+// ProjectName. When multiple distinct CWDs share the same basename (e.g.
+// "/work/api" and "/personal/api"), the project names are expanded to
+// "parent/basename" to prevent identity collisions. Unique basenames remain
+// short. The returned slice is sorted alphabetically by project name.
 func GroupByProject(sessions []Session) []Project {
-	byName := make(map[string]*Project)
+	// Pass 1: group by basename, tracking distinct CWDs per basename.
+	type basenameGroup struct {
+		cwds     map[string]struct{} // distinct CWDs seen
+		sessions []Session
+	}
+	byBase := make(map[string]*basenameGroup)
 
 	for _, s := range sessions {
 		name := s.ProjectName
@@ -107,15 +115,46 @@ func GroupByProject(sessions []Session) []Project {
 			name = "(unknown)"
 		}
 
-		p, ok := byName[name]
+		g, ok := byBase[name]
 		if !ok {
-			p = &Project{
-				Name: name,
-				Path: s.CWD,
-			}
-			byName[name] = p
+			g = &basenameGroup{cwds: make(map[string]struct{})}
+			byBase[name] = g
 		}
-		p.Sessions = append(p.Sessions, s)
+		g.cwds[s.CWD] = struct{}{}
+		g.sessions = append(g.sessions, s)
+	}
+
+	// Pass 2: detect collisions and build final projects.
+	byName := make(map[string]*Project)
+
+	for basename, g := range byBase {
+		collides := len(g.cwds) > 1
+
+		for i := range g.sessions {
+			s := &g.sessions[i]
+			name := basename
+
+			if collides {
+				expanded := expandedName(s.CWD)
+				if expanded != "" {
+					name = expanded
+				}
+				// else: CWD has no parent component, keep basename
+			}
+
+			// Update the session's ProjectName to match the resolved name.
+			s.ProjectName = name
+
+			p, ok := byName[name]
+			if !ok {
+				p = &Project{
+					Name: name,
+					Path: s.CWD,
+				}
+				byName[name] = p
+			}
+			p.Sessions = append(p.Sessions, *s)
+		}
 	}
 
 	projects := make([]Project, 0, len(byName))
@@ -128,4 +167,22 @@ func GroupByProject(sessions []Session) []Project {
 	})
 
 	return projects
+}
+
+// expandedName returns "parent/basename" for a path, or empty string if the
+// path has no parent directory (e.g. "/" or a single component).
+func expandedName(cwd string) string {
+	if cwd == "" {
+		return ""
+	}
+	parent := filepath.Dir(cwd)
+	base := filepath.Base(cwd)
+	parentBase := filepath.Base(parent)
+
+	// If Dir returned "/" or ".", there is no meaningful parent to prepend.
+	if parentBase == "." || parentBase == "/" || parent == cwd {
+		return ""
+	}
+
+	return parentBase + "/" + base
 }

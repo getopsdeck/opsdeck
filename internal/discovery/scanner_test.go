@@ -172,3 +172,156 @@ func TestGroupByProject(t *testing.T) {
 		t.Errorf("projectB sessions = %d, want 1", len(pb.Sessions))
 	}
 }
+
+// TestGroupByProject_CollidingBasenames verifies that sessions with the same
+// basename but different CWDs are separated into distinct projects, with names
+// expanded to parent/basename.
+func TestGroupByProject_CollidingBasenames(t *testing.T) {
+	sessions := []Session{
+		{ID: "s1", CWD: "/home/user/work/api", ProjectName: "api"},
+		{ID: "s2", CWD: "/home/user/personal/api", ProjectName: "api"},
+		{ID: "s3", CWD: "/home/user/work/api", ProjectName: "api"},
+	}
+
+	projects := GroupByProject(sessions)
+	if len(projects) != 2 {
+		t.Fatalf("len(projects) = %d, want 2", len(projects))
+	}
+
+	projectMap := map[string]Project{}
+	for _, p := range projects {
+		projectMap[p.Name] = p
+	}
+
+	// Colliding basenames should be expanded to parent/basename.
+	workAPI, ok := projectMap["work/api"]
+	if !ok {
+		t.Fatalf("expected project 'work/api', got projects: %v", projectNames(projects))
+	}
+	if len(workAPI.Sessions) != 2 {
+		t.Errorf("work/api sessions = %d, want 2", len(workAPI.Sessions))
+	}
+	if workAPI.Path != "/home/user/work/api" {
+		t.Errorf("work/api path = %q, want %q", workAPI.Path, "/home/user/work/api")
+	}
+
+	personalAPI, ok := projectMap["personal/api"]
+	if !ok {
+		t.Fatalf("expected project 'personal/api', got projects: %v", projectNames(projects))
+	}
+	if len(personalAPI.Sessions) != 1 {
+		t.Errorf("personal/api sessions = %d, want 1", len(personalAPI.Sessions))
+	}
+	if personalAPI.Path != "/home/user/personal/api" {
+		t.Errorf("personal/api path = %q, want %q", personalAPI.Path, "/home/user/personal/api")
+	}
+}
+
+// TestGroupByProject_MixedCollision verifies that only colliding basenames get
+// expanded; unique basenames stay short.
+func TestGroupByProject_MixedCollision(t *testing.T) {
+	sessions := []Session{
+		{ID: "s1", CWD: "/home/user/work/api", ProjectName: "api"},
+		{ID: "s2", CWD: "/home/user/personal/api", ProjectName: "api"},
+		{ID: "s3", CWD: "/home/user/GitHub/QuantMind", ProjectName: "QuantMind"},
+	}
+
+	projects := GroupByProject(sessions)
+	if len(projects) != 3 {
+		t.Fatalf("len(projects) = %d, want 3", len(projects))
+	}
+
+	projectMap := map[string]Project{}
+	for _, p := range projects {
+		projectMap[p.Name] = p
+	}
+
+	// "api" collides, so both should be expanded.
+	if _, ok := projectMap["work/api"]; !ok {
+		t.Errorf("expected 'work/api', got: %v", projectNames(projects))
+	}
+	if _, ok := projectMap["personal/api"]; !ok {
+		t.Errorf("expected 'personal/api', got: %v", projectNames(projects))
+	}
+	// "QuantMind" is unique, stays as-is.
+	if _, ok := projectMap["QuantMind"]; !ok {
+		t.Errorf("expected 'QuantMind', got: %v", projectNames(projects))
+	}
+}
+
+// TestGroupByProject_CollidingSessionNamesUpdated verifies that after
+// disambiguation, each session's ProjectName is updated to match the project.
+func TestGroupByProject_CollidingSessionNamesUpdated(t *testing.T) {
+	sessions := []Session{
+		{ID: "s1", CWD: "/home/user/work/api", ProjectName: "api"},
+		{ID: "s2", CWD: "/home/user/personal/api", ProjectName: "api"},
+	}
+
+	projects := GroupByProject(sessions)
+
+	for _, p := range projects {
+		for _, s := range p.Sessions {
+			if s.ProjectName != p.Name {
+				t.Errorf("session %s ProjectName = %q, want %q (matching project)", s.ID, s.ProjectName, p.Name)
+			}
+		}
+	}
+}
+
+// TestGroupByProject_EmptyCWD verifies that sessions with empty CWD still
+// group under "(unknown)" without panicking.
+func TestGroupByProject_EmptyCWD(t *testing.T) {
+	sessions := []Session{
+		{ID: "s1", CWD: "", ProjectName: ""},
+		{ID: "s2", CWD: "", ProjectName: ""},
+	}
+
+	projects := GroupByProject(sessions)
+	if len(projects) != 1 {
+		t.Fatalf("len(projects) = %d, want 1", len(projects))
+	}
+	if projects[0].Name != "(unknown)" {
+		t.Errorf("name = %q, want %q", projects[0].Name, "(unknown)")
+	}
+	if len(projects[0].Sessions) != 2 {
+		t.Errorf("sessions = %d, want 2", len(projects[0].Sessions))
+	}
+}
+
+// TestGroupByProject_RootPath verifies a CWD at the filesystem root does not
+// panic when expanding (no parent component available).
+func TestGroupByProject_RootPath(t *testing.T) {
+	sessions := []Session{
+		{ID: "s1", CWD: "/api", ProjectName: "api"},
+		{ID: "s2", CWD: "/home/user/work/api", ProjectName: "api"},
+	}
+
+	projects := GroupByProject(sessions)
+	if len(projects) != 2 {
+		t.Fatalf("len(projects) = %d, want 2", len(projects))
+	}
+
+	projectMap := map[string]Project{}
+	for _, p := range projects {
+		projectMap[p.Name] = p
+	}
+
+	// /api has no parent dir to expand with, falls back to just "api".
+	// /home/user/work/api expands to "work/api".
+	// Since both can't be "api", the root one stays "api" and the other expands.
+	if _, ok := projectMap["api"]; !ok {
+		t.Errorf("expected 'api' for root path, got: %v", projectNames(projects))
+	}
+	if _, ok := projectMap["work/api"]; !ok {
+		t.Errorf("expected 'work/api', got: %v", projectNames(projects))
+	}
+}
+
+// projectNames is a test helper that returns all project names for diagnostics.
+func projectNames(projects []Project) []string {
+	names := make([]string, len(projects))
+	for i, p := range projects {
+		names[i] = p.Name
+	}
+	return names
+}
