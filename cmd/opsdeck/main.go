@@ -54,6 +54,9 @@ func main() {
 		case "costs":
 			intel.RunCostReport()
 			return
+		case "ai-brief":
+			intel.RunAIBrief()
+			return
 		case "web", "serve":
 			addr := "localhost:7070"
 			if len(os.Args) > 2 {
