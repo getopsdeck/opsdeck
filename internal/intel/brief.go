@@ -208,7 +208,7 @@ func EnrichBrief(brief *DailyBrief, projectsDir, sessionsDir string, since time.
 					alive := discovery.CheckSession(sess.PID, sess.StartedAt)
 					state := discovery.ClassifyState(alive, lastActivity)
 
-					if state == discovery.StateWaiting || state == discovery.StateIdle {
+					if state == discovery.StateWaiting {
 						summary, err := ExtractRecent(transcriptPath, time.Time{})
 						lastMsg := ""
 						if err == nil {
