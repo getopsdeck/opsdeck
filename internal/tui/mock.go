@@ -1,6 +1,9 @@
 package tui
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Session represents a Claude Code session discovered on the system.
 type Session struct {
@@ -184,36 +187,13 @@ func filterSessions(sessions []Session, stateFilter, searchTerm string) []Sessio
 }
 
 // matchesSearch performs a case-insensitive substring match across session fields.
+// Uses strings.Contains and strings.ToLower for proper Unicode handling.
 func matchesSearch(s Session, term string) bool {
-	lower := func(str string) string {
-		b := make([]byte, len(str))
-		for i := range str {
-			c := str[i]
-			if c >= 'A' && c <= 'Z' {
-				b[i] = c + 32
-			} else {
-				b[i] = c
-			}
-		}
-		return string(b)
-	}
-	t := lower(term)
-	return contains(lower(s.ID), t) ||
-		contains(lower(s.Project), t) ||
-		contains(lower(s.State), t) ||
-		contains(lower(s.WorkingOn), t) ||
-		contains(lower(s.LastLine), t) ||
-		contains(lower(itoa(s.PID)), t)
-}
-
-func contains(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	t := strings.ToLower(term)
+	return strings.Contains(strings.ToLower(s.ID), t) ||
+		strings.Contains(strings.ToLower(s.Project), t) ||
+		strings.Contains(strings.ToLower(s.State), t) ||
+		strings.Contains(strings.ToLower(s.WorkingOn), t) ||
+		strings.Contains(strings.ToLower(s.LastLine), t) ||
+		strings.Contains(strings.ToLower(itoa(s.PID)), t)
 }

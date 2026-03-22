@@ -177,7 +177,9 @@ func (a *App) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case msg.String() == "backspace":
 		if len(a.searchBuf) > 0 {
-			a.searchBuf = a.searchBuf[:len(a.searchBuf)-1]
+			// Drop the last rune, not the last byte, for Unicode safety.
+			runes := []rune(a.searchBuf)
+			a.searchBuf = string(runes[:len(runes)-1])
 		}
 
 	default:
