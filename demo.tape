@@ -1,4 +1,4 @@
-# OpsDeck Hero GIF — brief + metrics demo
+# OpsDeck Hero GIF — full feature demo
 
 Output demo.gif
 
@@ -9,10 +9,10 @@ Set Height 700
 Set Theme "TokyoNight"
 Set WindowBar Colorful
 Set WindowBarSize 40
-Set TypingSpeed 35ms
+Set TypingSpeed 30ms
 Set Padding 20
 Set CursorBlink false
-Set LoopOffset 70%
+Set LoopOffset 60%
 Set Framerate 15
 
 # Setup (hidden)
@@ -22,15 +22,23 @@ Enter
 Sleep 1s
 Show
 
-# Daily brief
+# 1. List all sessions
+Type "opsdeck list"
+Enter
+Sleep 4s
+
+# 2. Clear and show brief
+Type "clear"
+Enter
+Sleep 500ms
 Type "opsdeck brief --since 12h"
 Enter
 Sleep 5s
 
-# Clear and show metrics
+# 3. Clear and show metrics
 Type "clear"
 Enter
 Sleep 500ms
 Type "opsdeck metrics"
 Enter
-Sleep 5s
+Sleep 4s
