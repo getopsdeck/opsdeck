@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+project_name: opsdeck
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: opsdeck
+    main: ./cmd/opsdeck
+    binary: opsdeck
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+brews:
+  - name: opsdeck
+    repository:
+      owner: opsdeck
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/opsdeck/opsdeck"
+    description: "Monitor all your Claude Code sessions from a single terminal"
+    license: "MIT"
+    install: |
+      bin.install "opsdeck"
+    test: |
+      system "#{bin}/opsdeck", "--version"
+
+release:
+  github:
+    owner: opsdeck
+    name: opsdeck
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
