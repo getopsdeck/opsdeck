@@ -115,7 +115,11 @@ func (s *Server) Start() error {
 	}()
 
 	log.Printf("OpsDeck web dashboard: http://%s\n", s.addr)
-	return http.ListenAndServe(s.addr, s.mux)
+	err := http.ListenAndServe(s.addr, s.mux)
+	if err != nil && strings.Contains(err.Error(), "address already in use") {
+		return fmt.Errorf("port %s is already in use. Try: opsdeck web :8080", s.addr)
+	}
+	return err
 }
 
 // refresh re-discovers all sessions and updates the snapshot.

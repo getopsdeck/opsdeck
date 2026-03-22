@@ -286,14 +286,23 @@ func formatPeriod(since time.Time) string {
 	hours := duration.Hours()
 
 	if hours <= 25 {
-		return fmt.Sprintf("Last %d hours (%s \u2192 %s)",
-			int(math.Round(hours)),
+		h := int(math.Round(hours))
+		unit := "hours"
+		if h == 1 {
+			unit = "hour"
+		}
+		return fmt.Sprintf("Last %d %s (%s \u2192 %s)",
+			h, unit,
 			since.Format("Jan 2 15:04"),
 			time.Now().Format("Jan 2 15:04"))
 	}
 	days := int(math.Round(hours / 24))
-	return fmt.Sprintf("Last %d days (%s \u2192 %s)",
-		days,
+	unit := "days"
+	if days == 1 {
+		unit = "day"
+	}
+	return fmt.Sprintf("Last %d %s (%s \u2192 %s)",
+		days, unit,
 		since.Format("Jan 2"),
 		time.Now().Format("Jan 2"))
 }
