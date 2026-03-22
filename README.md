@@ -199,6 +199,11 @@ no analytics. Everything stays on your machine.
 OpsDeck is designed to complement your existing workflow. It does not manage or
 spawn sessions -- it observes them. Use it alongside claude-squad or on its own.
 
+Cost analytics are powered by [ccusage](https://github.com/ryoppippi/ccusage)
+-- the best token usage tracker for Claude Code. Install it with
+`npm i -g ccusage` for accurate pricing from LiteLLM. OpsDeck focuses on live
+session monitoring and operational intelligence; ccusage handles cost tracking.
+
 ## Requirements
 
 - macOS or Linux (Windows support planned for a future release)
