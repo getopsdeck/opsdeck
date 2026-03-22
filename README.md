@@ -98,6 +98,12 @@ opsdeck version
 - **Read-only** -- OpsDeck only reads session data; it never modifies sessions
   or sends signals to processes
 - **Local-only** -- all data stays on your machine; nothing is sent anywhere
+- **Web dashboard** -- `opsdeck web` opens a browser-based view with SSE
+  real-time updates, same data, same dark theme
+
+### Web Dashboard
+
+![OpsDeck Web Dashboard](web-dashboard.png)
 
 ## Keyboard Shortcuts
 
