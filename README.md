@@ -77,9 +77,11 @@ opsdeck metrics
 # List all sessions — compact overview
 opsdeck list               # or: opsdeck ls
 
-# Cost analytics — token usage and estimated spend (via ccusage)
-opsdeck costs
-opsdeck costs --since 2h   # last 2 hours only
+# Cost analytics — powered by ccusage (https://github.com/ryoppippi/ccusage)
+opsdeck costs              # delegates to npx ccusage --breakdown
+opsdeck costs session      # per-session breakdown
+opsdeck costs monthly      # monthly aggregation
+opsdeck costs --instances  # per-project breakdown
 
 # AI-powered brief — natural language morning summary (opt-in, costs tokens)
 opsdeck ai-brief

@@ -346,10 +346,14 @@ func tryRunCcusage() bool {
 		return false
 	}
 
-	// Build args: npx ccusage --breakdown [any extra flags from os.Args]
-	args := []string{"ccusage", "--breakdown"}
-	for i := 2; i < len(os.Args); i++ {
-		args = append(args, os.Args[i])
+	// Pass all args after "costs" directly to ccusage.
+	// If no subcommand given, default to "daily --breakdown".
+	args := []string{"ccusage"}
+	extraArgs := os.Args[2:] // skip "opsdeck" and "costs"
+	if len(extraArgs) == 0 {
+		args = append(args, "--breakdown")
+	} else {
+		args = append(args, extraArgs...)
 	}
 
 	cmd := exec.Command(npxPath, args...)
