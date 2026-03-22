@@ -150,6 +150,9 @@ no analytics. Everything stays on your machine.
 | Auto-discovers sessions   | Yes     | No (managed) | Yes     | Yes          |
 | Session state detection   | Yes     | Yes          | No      | Partial      |
 | Project grouping          | Yes     | No           | No      | No           |
+| Daily brief               | Yes     | No           | No      | No           |
+| Productivity metrics      | Yes     | No           | No      | No           |
+| Session activity detail   | Yes     | No           | No      | No           |
 | Zero config               | Yes     | No           | Yes     | Yes          |
 | Read-only / non-invasive  | Yes     | No (manages) | Yes     | Yes          |
 | Cost analytics            | Planned | No           | Yes     | Yes          |
