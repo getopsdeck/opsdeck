@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/getopsdeck/opsdeck/internal/discovery"
@@ -63,6 +64,9 @@ func main() {
 		case "ai-brief":
 			intel.RunAIBrief()
 			return
+		case "watch":
+			runWatch()
+			return
 		case "list", "ls":
 			runList()
 			return
@@ -103,6 +107,7 @@ Commands:
   costs        Token usage and estimated spend per session
   ai-brief     AI-powered morning brief via claude -p (costs tokens)
   resume <id>  Resume a Claude Code session (supports prefix match)
+  watch        Monitor sessions, alert on state changes (macOS notifications)
   web [addr]   Web dashboard at addr (default: localhost:7070)
   version      Show version information
   help         Show this help message
@@ -116,6 +121,81 @@ read-only — it never modifies your sessions or sends data anywhere.
 
 GitHub: https://github.com/getopsdeck/opsdeck
 `, version)
+}
+
+// runWatch monitors sessions and alerts when any need attention.
+// It prints a notification whenever a session transitions to WAITING state.
+func runWatch() {
+	home, _ := os.UserHomeDir()
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	projectsDir := filepath.Join(home, ".claude", "projects")
+
+	fmt.Println("Watching sessions... (Ctrl+C to stop)")
+
+	lastStates := make(map[string]string) // session ID → last known state
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	// Immediate first check.
+	checkSessions(sessionsDir, projectsDir, lastStates)
+
+	for range ticker.C {
+		checkSessions(sessionsDir, projectsDir, lastStates)
+	}
+}
+
+func checkSessions(sessionsDir, projectsDir string, lastStates map[string]string) {
+	sessions, err := discovery.ScanSessions(sessionsDir)
+	if err != nil {
+		return
+	}
+
+	for _, rs := range sessions {
+		alive := discovery.CheckSession(rs.PID, rs.StartedAt)
+		transcriptPath := discovery.FindTranscriptPath(projectsDir, rs.CWD, rs.ID)
+		var lastActivity = rs.StartedAt
+		if transcriptPath != "" {
+			if t, err := discovery.ReadLastActivity(transcriptPath); err == nil && !t.IsZero() {
+				lastActivity = t
+			}
+		}
+		state := string(discovery.ClassifyState(alive, lastActivity))
+
+		prev, seen := lastStates[rs.ID]
+		lastStates[rs.ID] = state
+
+		if !seen {
+			continue // First observation — don't alert.
+		}
+
+		if state != prev {
+			now := time.Now().Format("15:04:05")
+			id := rs.ID
+			if len(id) > 12 {
+				id = id[:12]
+			}
+
+			switch state {
+			case "waiting":
+				fmt.Printf("[%s] ◐ %s (%s) is now WAITING — needs your attention\n", now, rs.ProjectName, id)
+				// macOS notification if available.
+				notifyMac(rs.ProjectName + " needs attention", "Session "+id+" is waiting for input")
+			case "dead":
+				fmt.Printf("[%s] ✕ %s (%s) session DIED\n", now, rs.ProjectName, id)
+			case "busy":
+				if prev == "waiting" {
+					fmt.Printf("[%s] ● %s (%s) resumed — now BUSY\n", now, rs.ProjectName, id)
+				}
+			}
+		}
+	}
+}
+
+// notifyMac sends a macOS notification via osascript. Silent failure on Linux.
+func notifyMac(title, message string) {
+	exec.Command("osascript", "-e",
+		fmt.Sprintf(`display notification "%s" with title "%s"`, message, title),
+	).Run()
 }
 
 // runList prints a compact list of all sessions with state and project.
