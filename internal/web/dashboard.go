@@ -269,6 +269,7 @@ function selectSession(id) {
       if (s.files_changed) stats.push('<span>' + s.files_changed + '</span> files');
       if (s.error_count) stats.push('<span>' + s.error_count + '</span> errors');
       if (s.messages) stats.push('<span>' + s.messages + '</span> messages');
+      if (s.est_cost_usd > 0) stats.push('<span>$' + s.est_cost_usd.toFixed(2) + '</span> est.');
       document.getElementById('detail-stats').innerHTML = stats.join(' &middot; ');
 
       const al = document.getElementById('detail-activities');

@@ -34,6 +34,10 @@ type SessionView struct {
 	Messages     int      `json:"messages"`
 	Activities   []string `json:"activities,omitempty"`
 	LastRequest  string   `json:"last_request,omitempty"`
+
+	// Cost data.
+	TotalTokens int64   `json:"total_tokens"`
+	EstCostUSD  float64 `json:"est_cost_usd"`
 }
 
 // cachedSummary holds a cached transcript summary keyed by modtime.
@@ -247,6 +251,13 @@ func (s *Server) handleAPISessionDetail(w http.ResponseWriter, r *http.Request) 
 							target.LastRequest = summary.LastUserMsg
 						}
 					}
+				}
+
+				// Cost data for detail view.
+				cost, err := intel.ExtractCosts(transcriptPath, time.Time{})
+				if err == nil {
+					target.TotalTokens = cost.TotalTokens
+					target.EstCostUSD = cost.EstCostUSD
 				}
 			}
 			break
