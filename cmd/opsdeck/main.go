@@ -10,9 +10,19 @@ import (
 	"github.com/getopsdeck/opsdeck/internal/tui"
 )
 
+// Set via ldflags at build time.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "version", "--version", "-v":
+			fmt.Printf("opsdeck %s (commit %s, built %s)\n", version, commit, date)
+			return
 		case "brief":
 			runBrief()
 			return

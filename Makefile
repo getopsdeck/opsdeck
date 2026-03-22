@@ -1,5 +1,5 @@
 BINARY  := opsdeck
-PKG     := github.com/opsdeck/opsdeck/cmd/opsdeck
+PKG     := github.com/getopsdeck/opsdeck/cmd/opsdeck
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 .PHONY: build test install lint clean

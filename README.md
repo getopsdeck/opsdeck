@@ -41,7 +41,7 @@ you a real-time dashboard of every Claude Code session on your machine.
 brew install opsdeck/tap/opsdeck
 
 # Or with Go
-go install github.com/opsdeck/opsdeck/cmd/opsdeck@latest
+go install github.com/getopsdeck/opsdeck/cmd/opsdeck@latest
 ```
 
 Requires Go 1.26+ for source builds. No other dependencies.
@@ -54,6 +54,24 @@ opsdeck
 
 That is it. No config files, no setup, no flags. OpsDeck finds your Claude Code
 sessions automatically and starts showing them.
+
+## Commands
+
+```bash
+# Real-time TUI dashboard (default)
+opsdeck
+
+# Daily briefing — what happened across all your projects
+opsdeck brief
+opsdeck brief --since 2h    # last 2 hours only
+opsdeck brief --since 48h   # last 2 days
+
+# Productivity metrics — today vs yesterday comparison
+opsdeck metrics
+
+# Version
+opsdeck version
+```
 
 ## Features
 
@@ -113,10 +131,10 @@ State classification:
 
 ## Roadmap
 
-- **v0.1** -- Core TUI dashboard (current)
+- **v0.1** -- Core TUI dashboard + daily brief + productivity metrics (current)
 - **v0.2** -- Cost analytics: token usage and estimated spend per session
 - **v0.3** -- Web dashboard: browser-based UI alongside the TUI
-- **v0.4** -- AI morning brief: daily summary of what all your sessions accomplished
+- **v0.4** -- AI-powered brief: distill and summarize via `claude -p` (opt-in)
 
 ## Privacy
 

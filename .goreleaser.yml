@@ -46,11 +46,11 @@ changelog:
 brews:
   - name: opsdeck
     repository:
-      owner: opsdeck
+      owner: getopsdeck
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/opsdeck/opsdeck"
+    homepage: "https://github.com/getopsdeck/opsdeck"
     description: "Monitor all your Claude Code sessions from a single terminal"
     license: "MIT"
     install: |
@@ -60,7 +60,7 @@ brews:
 
 release:
   github:
-    owner: opsdeck
+    owner: getopsdeck
     name: opsdeck
   draft: false
   prerelease: auto
