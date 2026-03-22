@@ -178,6 +178,7 @@ func (m DashboardModel) renderHelpBar() string {
 		{"0", "clear"},
 		{"tab", "view"},
 		{"r", "refresh"},
+		{"R", "resume"},
 		{"q", "quit"},
 	}
 
