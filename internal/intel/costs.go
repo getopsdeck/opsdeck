@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -289,8 +290,17 @@ func formatTokens(n int64) string {
 }
 
 // RunCostReport is the entrypoint for the `opsdeck costs` subcommand.
-// It supports a --since flag matching the brief subcommand's behavior.
+// It tries ccusage first (accurate pricing from LiteLLM), falls back to
+// built-in estimation if ccusage is not installed.
 func RunCostReport() {
+	// Try ccusage first for accurate pricing.
+	if tryRunCcusage() {
+		return
+	}
+
+	// Fallback to built-in estimation.
+	fmt.Fprintln(os.Stderr, "ccusage not found, using built-in estimates (install: npm i -g ccusage)")
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -326,4 +336,29 @@ func RunCostReport() {
 	}
 
 	fmt.Print(FormatCostReport(report))
+}
+
+// tryRunCcusage attempts to run ccusage for accurate cost reporting.
+// Returns true if ccusage ran successfully.
+func tryRunCcusage() bool {
+	npxPath, err := exec.LookPath("npx")
+	if err != nil {
+		return false
+	}
+
+	// Build args: npx ccusage --breakdown [any extra flags from os.Args]
+	args := []string{"ccusage", "--breakdown"}
+	for i := 2; i < len(os.Args); i++ {
+		args = append(args, os.Args[i])
+	}
+
+	cmd := exec.Command(npxPath, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
 }
