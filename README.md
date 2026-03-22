@@ -88,6 +88,9 @@ opsdeck ai-brief
 opsdeck resume <session-id>
 opsdeck resume 2820          # prefix match
 
+# Watch mode — monitor sessions, alert on state changes
+opsdeck watch                # macOS desktop notifications included
+
 # Web dashboard — browser-based UI with real-time updates
 opsdeck web                # opens http://localhost:7070
 opsdeck web :8080          # custom port
