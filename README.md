@@ -75,6 +75,9 @@ opsdeck metrics
 # Cost analytics — token usage and estimated spend per session
 opsdeck costs
 
+# AI-powered brief — natural language morning summary (opt-in, costs tokens)
+opsdeck ai-brief
+
 # Web dashboard — browser-based UI with real-time updates
 opsdeck web                # opens http://localhost:7070
 opsdeck web :8080          # custom port
@@ -149,8 +152,8 @@ State classification:
 
 - **v0.1** -- Core TUI dashboard + daily brief + productivity metrics
 - **v0.3** -- Web dashboard with SSE real-time updates
-- **v0.4** -- Cost analytics: token usage and estimated spend per session (current)
-- **v0.5** -- AI-powered brief: distill and summarize via `claude -p` (opt-in)
+- **v0.4** -- Cost analytics: token usage and estimated spend per session
+- **v0.5** -- AI-powered brief via `claude -p` (current)
 
 ## Privacy
 
