@@ -505,7 +505,7 @@ function loadTimeline(sessionId) {
       });
 
       document.getElementById('timeline-title').textContent =
-        'Session Timeline \u2014 ' + tl.events.length + ' events, ' +
+        'Session Timeline \u2014 ' + tl.events.length + (tl.events.length === 1 ? ' event, ' : ' events, ') +
         new Date(tl.started_at).toLocaleTimeString() + ' \u2013 ' +
         new Date(tl.ended_at).toLocaleTimeString();
 
