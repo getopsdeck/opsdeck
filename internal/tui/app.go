@@ -302,6 +302,16 @@ func (a *App) updateDetail() {
 				}
 			}
 
+			// ASCII timeline bar.
+			if sel.TranscriptPath != "" {
+				since := time.Now().Add(-24 * time.Hour)
+				tl, err := intel.ExtractTimeline(sel.TranscriptPath, since)
+				if err == nil && len(tl.Events) > 5 {
+					bar := renderMiniTimeline(tl.Events, 50)
+					lines = append(lines, a.styles.StatusKey.Render("Timeline:")+bar)
+				}
+			}
+
 			// Condensed activity bullets.
 			condensed := intel.SummarizeActivities(summary.Activities)
 			if len(condensed) > 0 {
@@ -347,6 +357,59 @@ func truncateRunes(s string, maxLen int) string {
 		return string(runes[:maxLen])
 	}
 	return strings.ReplaceAll(string(runes[:maxLen-3]), "\n", " ") + "..."
+}
+
+// renderMiniTimeline converts a slice of timeline events into a single-line
+// ASCII bar of the given width. Each character represents a proportional
+// slice of the session duration:
+//
+//	█  tool use
+//	▓  assistant text
+//	▒  user message
+//	X  error
+//	░  idle gap
+func renderMiniTimeline(events []intel.TimelineEvent, width int) string {
+	if len(events) == 0 || width <= 0 {
+		return ""
+	}
+
+	start := events[0].Timestamp
+	end := events[len(events)-1].Timestamp
+	totalDur := end.Sub(start)
+	if totalDur <= 0 {
+		return ""
+	}
+
+	cells := make([]rune, width)
+	for i := range cells {
+		cells[i] = '░' // idle by default
+	}
+
+	charFor := func(evType string) rune {
+		switch evType {
+		case "tool":
+			return '█'
+		case "text":
+			return '▓'
+		case "user":
+			return '▒'
+		case "error":
+			return 'X'
+		default:
+			return '░'
+		}
+	}
+
+	for _, ev := range events {
+		offset := ev.Timestamp.Sub(start)
+		idx := int(float64(offset) / float64(totalDur) * float64(width))
+		if idx >= width {
+			idx = width - 1
+		}
+		cells[idx] = charFor(ev.Type)
+	}
+
+	return string(cells)
 }
 
 // syncSizes propagates terminal dimensions to all sub-components.

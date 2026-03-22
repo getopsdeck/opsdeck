@@ -151,13 +151,37 @@ func runWatch() {
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
 
-	fmt.Println("Watching sessions... (Ctrl+C to stop)")
+	// Show current state summary before watching.
+	sessions, _ := discovery.ScanSessions(sessionsDir)
+	busy, waiting, idle, dead := 0, 0, 0, 0
+	for _, s := range sessions {
+		alive := discovery.CheckSession(s.PID, s.StartedAt)
+		tp := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
+		la := s.StartedAt
+		if tp != "" {
+			if t, err := discovery.ReadLastActivity(tp); err == nil && !t.IsZero() {
+				la = t
+			}
+		}
+		switch discovery.ClassifyState(alive, la) {
+		case discovery.StateBusy:
+			busy++
+		case discovery.StateWaiting:
+			waiting++
+		case discovery.StateIdle:
+			idle++
+		case discovery.StateDead:
+			dead++
+		}
+	}
+	fmt.Printf("Watching %d sessions (● %d busy, ◐ %d waiting, ○ %d idle, ✕ %d dead)\n", len(sessions), busy, waiting, idle, dead)
+	fmt.Println("Alerts on state changes. Ctrl+C to stop.")
 
-	lastStates := make(map[string]string) // session ID → last known state
+	lastStates := make(map[string]string)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	// Immediate first check.
+	// Immediate first check (populates lastStates without alerting).
 	checkSessions(sessionsDir, projectsDir, lastStates)
 
 	for range ticker.C {
