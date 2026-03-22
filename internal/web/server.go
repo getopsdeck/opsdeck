@@ -179,34 +179,42 @@ func (s *Server) refresh() {
 
 // cachedExtract returns a transcript summary and cost data, using a cache
 // keyed by file modification time to avoid re-parsing unchanged transcripts.
+// Uses two-phase check-then-compute to avoid holding the lock during file I/O.
 func (s *Server) cachedExtract(path string) (intel.SessionSummary, intel.SessionCost) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return intel.SessionSummary{}, intel.SessionCost{}
 	}
 
+	// Phase 1: check cache under lock.
 	s.cacheMu.Lock()
-	defer s.cacheMu.Unlock()
-
 	if cached, ok := s.cache[path]; ok && cached.modTime.Equal(info.ModTime()) {
+		s.cacheMu.Unlock()
 		return cached.summary, cached.cost
 	}
+	s.cacheMu.Unlock()
 
+	// Phase 2: compute outside the lock.
 	summary, _ := intel.ExtractSummary(path)
 	cost, _ := intel.ExtractCosts(path, time.Time{})
 
+	// Phase 3: store under lock.
+	s.cacheMu.Lock()
 	s.cache[path] = cachedSummary{modTime: info.ModTime(), summary: summary, cost: cost}
+	s.cacheMu.Unlock()
+
 	return summary, cost
 }
 
 // handleAPISessions returns the current session list as JSON.
 func (s *Server) handleAPISessions(w http.ResponseWriter, r *http.Request) {
 	s.snapshot.mu.RLock()
-	data := s.snapshot.sessions
+	out := make([]SessionView, len(s.snapshot.sessions))
+	copy(out, s.snapshot.sessions)
 	s.snapshot.mu.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	json.NewEncoder(w).Encode(out)
 }
 
 // handleAPISessionDetail returns detailed activity for a single session.

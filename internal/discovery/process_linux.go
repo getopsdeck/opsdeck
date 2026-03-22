@@ -118,9 +118,9 @@ func CheckSession(pid int, startedAt time.Time) bool {
 	return diff < 5*time.Second || isReasonableStartTime(procStart, startedAt)
 }
 
-// isReasonableStartTime provides a fallback check for cases where the
-// session startedAt is recorded in a different epoch or precision.
+// isReasonableStartTime provides a fallback for second-granularity rounding
+// differences between process start time and session startedAt.
 func isReasonableStartTime(procStart, sessionStart time.Time) bool {
 	diff := math.Abs(float64(procStart.Unix() - sessionStart.Unix()))
-	return diff < 600 // 10 minutes
+	return diff < 2 // only compensate for rounding to whole seconds
 }
