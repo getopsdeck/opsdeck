@@ -152,15 +152,48 @@ const dashboardHTML = `<!DOCTYPE html>
     padding: 60px 0;
     color: var(--fg-dark);
   }
+  .stat-badge {
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.1s;
+    user-select: none;
+  }
+  .stat-badge:hover { transform: translateY(-1px); }
+  .stat-badge.active-filter {
+    box-shadow: 0 0 0 2px currentColor;
+    transform: translateY(-1px);
+  }
+  .search-bar {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 4px;
+  }
+  .search-bar::placeholder { color: var(--fg-dark); }
+  .search-bar:focus { border-color: var(--blue); }
+  .cost-badge {
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--cyan);
+    margin-left: 12px;
+    opacity: 0.9;
+  }
 </style>
 </head>
 <body>
 <header>
   <div>OpsDeck <span class="subtitle">Chief of Staff for Claude Code</span></div>
-  <div><span class="live-dot"></span><span id="session-count">Loading...</span></div>
+  <div><span class="live-dot"></span><span id="session-count">Loading...</span><span class="cost-badge" id="cost-today"></span></div>
 </header>
 <div class="container">
   <div class="stats" id="stats"></div>
+  <input class="search-bar" id="search" type="text" placeholder="Search by project, session ID, or activity..." autocomplete="off">
   <table>
     <thead>
       <tr>
@@ -185,12 +218,21 @@ const dashboardHTML = `<!DOCTYPE html>
 <script>
 const stateIcons = { busy: '●', waiting: '◐', idle: '○', dead: '✕' };
 let selectedId = null;
+let allSessions = [];
+let activeFilter = null;
+let searchQuery = '';
+
+// Search input
+document.getElementById('search').addEventListener('input', function() {
+  searchQuery = this.value.trim().toLowerCase();
+  renderFiltered();
+});
 
 function connect() {
   const es = new EventSource('/api/events');
   es.onmessage = (e) => {
-    const sessions = JSON.parse(e.data);
-    render(sessions);
+    allSessions = JSON.parse(e.data);
+    render(allSessions);
   };
   es.onerror = () => {
     es.close();
@@ -199,19 +241,54 @@ function connect() {
 }
 
 function render(sessions) {
-  // Stats
+  // Stats — count across all sessions (unfiltered)
   const counts = { busy: 0, waiting: 0, idle: 0, dead: 0 };
   sessions.forEach(s => counts[s.state] = (counts[s.state] || 0) + 1);
   document.getElementById('stats').innerHTML =
     Object.entries(counts).map(([k,v]) =>
-      '<div class="stat-badge stat-' + k + '">' + v + ' ' + k + '</div>'
+      '<div class="stat-badge stat-' + k + (activeFilter === k ? ' active-filter' : '') +
+      '" data-state="' + k + '">' + v + ' ' + k + '</div>'
     ).join('');
+  // Attach filter click handlers
+  document.querySelectorAll('.stat-badge[data-state]').forEach(badge => {
+    badge.addEventListener('click', () => {
+      const st = badge.dataset.state;
+      activeFilter = activeFilter === st ? null : st;
+      renderFiltered();
+    });
+  });
+
+  // Total cost
+  const totalCost = sessions.reduce((sum, s) => sum + (s.est_cost_usd || 0), 0);
+  const costEl = document.getElementById('cost-today');
+  costEl.textContent = totalCost > 0 ? '· $' + totalCost.toFixed(2) + ' today' : '';
+
   document.getElementById('session-count').textContent =
-    sessions.length + ' sessions';
+    sessions.length + ' session' + (sessions.length !== 1 ? 's' : '');
+
+  renderFiltered();
+}
+
+function renderFiltered() {
+  // Re-render badges to reflect activeFilter
+  document.querySelectorAll('.stat-badge[data-state]').forEach(badge => {
+    badge.classList.toggle('active-filter', badge.dataset.state === activeFilter);
+  });
+
+  // Apply search + state filter
+  const q = searchQuery;
+  let filtered = allSessions.filter(s => {
+    if (activeFilter && s.state !== activeFilter) return false;
+    if (q) {
+      const haystack = (s.project + ' ' + s.id + ' ' + (s.working_on || '')).toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
 
   // Group by project
   const groups = {};
-  sessions.forEach(s => {
+  filtered.forEach(s => {
     if (!groups[s.project]) groups[s.project] = [];
     groups[s.project].push(s);
   });
@@ -219,26 +296,33 @@ function render(sessions) {
   // Table
   const tbody = document.getElementById('sessions');
   tbody.innerHTML = '';
-  Object.keys(groups).sort().forEach(project => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" class="project-group">' + project + '/ (' + groups[project].length + ')</td>';
-    tbody.appendChild(tr);
 
-    groups[project].forEach(s => {
-      const row = document.createElement('tr');
-      row.className = 'state-' + s.state + (s.id === selectedId ? ' selected' : '');
-      row.onclick = () => selectSession(s.id);
-      const ago = timeAgo(new Date(s.started_at));
-      row.innerHTML =
-        '<td class="state-icon">' + (stateIcons[s.state] || '?') + '</td>' +
-        '<td>' + s.project + '</td>' +
-        '<td style="font-family:monospace;font-size:12px">' + s.id.substring(0,12) + '</td>' +
-        '<td>' + s.state.toUpperCase() + '</td>' +
-        '<td>' + ago + '</td>' +
-        '<td style="color:var(--fg-dark)">' + (s.working_on || formatStats(s)) + '</td>';
-      tbody.appendChild(row);
+  if (filtered.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="6" style="text-align:center;padding:40px 0;color:var(--fg-dark)">No sessions match the current filter</td>';
+    tbody.appendChild(tr);
+  } else {
+    Object.keys(groups).sort().forEach(project => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="6" class="project-group">' + project + '/ (' + groups[project].length + ')</td>';
+      tbody.appendChild(tr);
+
+      groups[project].forEach(s => {
+        const row = document.createElement('tr');
+        row.className = 'state-' + s.state + (s.id === selectedId ? ' selected' : '');
+        row.onclick = () => selectSession(s.id);
+        const ago = timeAgo(new Date(s.started_at));
+        row.innerHTML =
+          '<td class="state-icon">' + (stateIcons[s.state] || '?') + '</td>' +
+          '<td>' + s.project + '</td>' +
+          '<td style="font-family:monospace;font-size:12px">' + s.id.substring(0,12) + '</td>' +
+          '<td>' + s.state.toUpperCase() + '</td>' +
+          '<td>' + ago + '</td>' +
+          '<td style="color:var(--fg-dark)">' + (s.working_on || formatStats(s)) + '</td>';
+        tbody.appendChild(row);
+      });
     });
-  });
+  }
 
   document.getElementById('last-updated').textContent =
     'Updated ' + new Date().toLocaleTimeString();
