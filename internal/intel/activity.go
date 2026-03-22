@@ -160,6 +160,10 @@ func extractFromFile(path string, since time.Time) (SessionSummary, error) {
 		}
 	}
 
+	// Check for scanner errors (e.g., lines exceeding buffer).
+	// We still return partial results since they're useful.
+	_ = scanner.Err()
+
 	// Build sorted, deduplicated FilesChanged.
 	for f := range filesSet {
 		summary.FilesChanged = append(summary.FilesChanged, f)
@@ -385,15 +389,17 @@ func describeGitOp(cmd, description string) string {
 	return truncate(trimmed, 60)
 }
 
-// truncate shortens a string to maxLen characters, adding "..." if truncated.
+// truncate shortens a string to maxLen runes, adding "..." if truncated.
+// Uses rune counting to avoid splitting multi-byte UTF-8 characters.
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return string(runes[:maxLen])
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // isSystemMessage checks if a user message is a system/control message

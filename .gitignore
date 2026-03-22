@@ -1,5 +1,5 @@
-# Binary
-opsdeck
+# Binary (only root-level, not cmd/opsdeck/)
+/opsdeck
 
 # Go build artifacts
 *.exe
