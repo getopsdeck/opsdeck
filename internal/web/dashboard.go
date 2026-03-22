@@ -254,6 +254,7 @@ const dashboardHTML = `<!DOCTYPE html>
       <tr>
         <th style="width:30px"></th>
         <th>Project</th>
+        <th>Branch</th>
         <th>Session</th>
         <th>State</th>
         <th>Started</th>
@@ -345,7 +346,7 @@ function renderFiltered() {
   let filtered = allSessions.filter(s => {
     if (activeFilter && s.state !== activeFilter) return false;
     if (q) {
-      const haystack = (s.project + ' ' + s.id + ' ' + (s.working_on || '')).toLowerCase();
+      const haystack = (s.project + ' ' + s.id + ' ' + (s.working_on || '') + ' ' + (s.git_branch || '')).toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
@@ -364,12 +365,12 @@ function renderFiltered() {
 
   if (filtered.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" style="text-align:center;padding:40px 0;color:var(--fg-dark)">No sessions match the current filter</td>';
+    tr.innerHTML = '<td colspan="7" style="text-align:center;padding:40px 0;color:var(--fg-dark)">No sessions match the current filter</td>';
     tbody.appendChild(tr);
   } else {
     Object.keys(groups).sort().forEach(project => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6" class="project-group">' + escapeHtml(project) + '/ (' + groups[project].length + ')</td>';
+      tr.innerHTML = '<td colspan="7" class="project-group">' + escapeHtml(project) + '/ (' + groups[project].length + ')</td>';
       tbody.appendChild(tr);
 
       groups[project].forEach(s => {
@@ -377,9 +378,12 @@ function renderFiltered() {
         row.className = 'state-' + s.state + (s.id === selectedId ? ' selected' : '');
         row.onclick = () => selectSession(s.id);
         const ago = timeAgo(new Date(s.started_at));
+        const branchLabel = s.git_branch ? escapeHtml(s.git_branch) + (s.git_dirty ? ' *' : '') : '-';
+        const branchStyle = s.git_dirty ? 'color:var(--yellow)' : 'color:var(--cyan)';
         row.innerHTML =
           '<td class="state-icon">' + (stateIcons[s.state] || '?') + '</td>' +
           '<td>' + escapeHtml(s.project) + '</td>' +
+          '<td style="font-size:12px;' + branchStyle + '">' + branchLabel + '</td>' +
           '<td style="font-family:monospace;font-size:12px">' + escapeHtml(s.id.substring(0,12)) + '</td>' +
           '<td>' + escapeHtml(s.state.toUpperCase()) + '</td>' +
           '<td>' + ago + '</td>' +
@@ -413,8 +417,11 @@ function selectSession(id) {
   fetch('/api/session/' + id)
     .then(r => r.json())
     .then(s => {
-      document.getElementById('detail-title').textContent =
-        (stateIcons[s.state] || '') + '  ' + s.id + '  (PID ' + s.pid + ')';
+      let titleText = (stateIcons[s.state] || '') + '  ' + s.id + '  (PID ' + s.pid + ')';
+      if (s.git_branch) {
+        titleText += '  \u2014 ' + s.git_branch + (s.git_dirty ? ' *' : '');
+      }
+      document.getElementById('detail-title').textContent = titleText;
 
       const stats = [];
       if (s.edit_count) stats.push('<span>' + s.edit_count + '</span> edits');
@@ -423,6 +430,9 @@ function selectSession(id) {
       if (s.error_count) stats.push('<span>' + s.error_count + '</span> errors');
       if (s.messages) stats.push('<span>' + s.messages + '</span> messages');
       if (s.est_cost_usd > 0) stats.push('<span>$' + s.est_cost_usd.toFixed(2) + '</span> est.');
+      if (s.git_ahead) stats.push('<span>' + s.git_ahead + '</span> ahead');
+      if (s.git_behind) stats.push('<span>' + s.git_behind + '</span> behind');
+      if (s.git_last_commit) stats.push('<span style="color:var(--cyan)">' + escapeHtml(s.git_last_commit) + '</span>');
       document.getElementById('detail-stats').innerHTML = stats.join(' &middot; ');
 
       const al = document.getElementById('detail-activities');

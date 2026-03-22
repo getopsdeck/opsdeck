@@ -22,6 +22,7 @@ import (
 type SessionView struct {
 	ID        string    `json:"id"`
 	PID       int       `json:"pid"`
+	CWD       string    `json:"cwd,omitempty"`
 	State     string    `json:"state"`
 	Project   string    `json:"project"`
 	StartedAt time.Time `json:"started_at"`
@@ -35,6 +36,13 @@ type SessionView struct {
 	Messages     int      `json:"messages"`
 	Activities   []string `json:"activities,omitempty"`
 	LastRequest  string   `json:"last_request,omitempty"`
+
+	// Git data.
+	GitBranch     string `json:"git_branch,omitempty"`
+	GitDirty      bool   `json:"git_dirty,omitempty"`
+	GitAhead      int    `json:"git_ahead,omitempty"`
+	GitBehind     int    `json:"git_behind,omitempty"`
+	GitLastCommit string `json:"git_last_commit,omitempty"`
 
 	// Cost data.
 	TotalTokens int64   `json:"total_tokens"`
@@ -145,11 +153,20 @@ func (s *Server) refresh() {
 		view := SessionView{
 			ID:        rs.ID,
 			PID:       rs.PID,
+			CWD:       rs.CWD,
 			State:     string(state),
 			Project:   rs.ProjectName,
 			StartedAt: rs.StartedAt,
 			WorkingOn: workingOn,
 		}
+
+		// Git info for the session's working directory.
+		gi := discovery.GetGitInfo(rs.CWD)
+		view.GitBranch = gi.Branch
+		view.GitDirty = gi.IsDirty
+		view.GitAhead = gi.Ahead
+		view.GitBehind = gi.Behind
+		view.GitLastCommit = gi.LastCommit
 
 		// Use cached transcript summary to avoid re-parsing unchanged files.
 		if transcriptPath != "" {
