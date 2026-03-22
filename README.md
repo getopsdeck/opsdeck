@@ -81,6 +81,10 @@ opsdeck costs --since 2h   # last 2 hours only
 # AI-powered brief — natural language morning summary (opt-in, costs tokens)
 opsdeck ai-brief
 
+# Resume a session — opens claude --resume in the session's directory
+opsdeck resume <session-id>
+opsdeck resume 2820          # prefix match
+
 # Web dashboard — browser-based UI with real-time updates
 opsdeck web                # opens http://localhost:7070
 opsdeck web :8080          # custom port
