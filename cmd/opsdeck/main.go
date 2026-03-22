@@ -63,6 +63,9 @@ func main() {
 		case "ai-brief":
 			intel.RunAIBrief()
 			return
+		case "list", "ls":
+			runList()
+			return
 		case "resume":
 			runResume()
 			return
@@ -96,6 +99,7 @@ Commands:
   (default)    Real-time TUI dashboard
   brief        Daily briefing across all projects
   metrics      Today vs yesterday productivity comparison
+  list         Compact list of all sessions with state and branch
   costs        Token usage and estimated spend per session
   ai-brief     AI-powered morning brief via claude -p (costs tokens)
   resume <id>  Resume a Claude Code session (supports prefix match)
@@ -112,6 +116,72 @@ read-only — it never modifies your sessions or sends data anywhere.
 
 GitHub: https://github.com/getopsdeck/opsdeck
 `, version)
+}
+
+// runList prints a compact list of all sessions with state and project.
+func runList() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	projectsDir := filepath.Join(home, ".claude", "projects")
+	sessions, err := discovery.ScanSessions(sessionsDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	projects := discovery.GroupByProject(sessions)
+
+	fmt.Printf("%-14s %-12s %-8s %-18s %s\n", "SESSION", "PROJECT", "STATE", "BRANCH", "STARTED")
+	fmt.Println(strings.Repeat("-", 72))
+
+	for _, p := range projects {
+		for _, s := range p.Sessions {
+			alive := discovery.CheckSession(s.PID, s.StartedAt)
+			transcriptPath := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
+			var lastActivity = s.StartedAt
+			if transcriptPath != "" {
+				if t, err := discovery.ReadLastActivity(transcriptPath); err == nil && !t.IsZero() {
+					lastActivity = t
+				}
+			}
+			state := discovery.ClassifyState(alive, lastActivity)
+
+			gi := discovery.GetGitInfo(s.CWD)
+			branch := gi.Branch
+			if gi.IsDirty && branch != "" {
+				branch += "*"
+			}
+			if branch == "" {
+				branch = "-"
+			}
+
+			id := s.ID
+			if len(id) > 12 {
+				id = id[:12]
+			}
+
+			icon := "○"
+			switch state {
+			case discovery.StateBusy:
+				icon = "●"
+			case discovery.StateWaiting:
+				icon = "◐"
+			case discovery.StateDead:
+				icon = "✕"
+			}
+
+			fmt.Printf("%s %-12s %-12s %-8s %-18s %s\n",
+				icon, id, p.Name, string(state), branch,
+				s.StartedAt.Format("Jan 02 15:04"))
+		}
+	}
+
+	fmt.Printf("\n%d sessions across %d projects\n", len(sessions), len(projects))
 }
 
 // runResume opens a Claude Code session by ID. It finds the session's working
