@@ -45,6 +45,7 @@ changelog:
 
 brews:
   - name: opsdeck
+    skip_upload: auto
     repository:
       owner: getopsdeck
       name: homebrew-tap
