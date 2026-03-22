@@ -379,10 +379,15 @@ func FormatDailyBrief(brief DailyBrief) string {
 	}
 
 	// --- NEEDS YOUR ATTENTION: waiting sessions ---
-	var waitingLines []string
+	type waitEntry struct {
+		line string
+		dur  time.Duration
+	}
+	var waitEntries []waitEntry
 	for _, p := range brief.Projects {
 		for _, ws := range p.WaitingSessions {
-			waitDur := formatWaitDuration(time.Since(ws.WaitingSince))
+			dur := time.Since(ws.WaitingSince)
+			waitDur := formatWaitDuration(dur)
 			id := ws.SessionID
 			if len(id) > 8 {
 				id = id[:8]
@@ -392,17 +397,41 @@ func FormatDailyBrief(brief DailyBrief) string {
 				msg := truncate(ws.LastUserMsg, 40)
 				line += fmt.Sprintf(" -- last: %q", msg)
 			}
-			waitingLines = append(waitingLines, line)
+			waitEntries = append(waitEntries, waitEntry{line: line, dur: dur})
 		}
 	}
-
-	if len(waitingLines) > 5 {
-		waitingLines = waitingLines[:5]
+	// Sort by wait duration descending (longest waiting first).
+	sort.Slice(waitEntries, func(i, j int) bool {
+		return waitEntries[i].dur > waitEntries[j].dur
+	})
+	if len(waitEntries) > 5 {
+		waitEntries = waitEntries[:5]
+	}
+	var waitingLines []string
+	for _, e := range waitEntries {
+		waitingLines = append(waitingLines, e.line)
 	}
 	if len(waitingLines) > 0 {
 		b.WriteString("\nNEEDS YOUR ATTENTION:\n")
 		for _, line := range waitingLines {
 			b.WriteString(line + "\n")
+		}
+		// One-line recommendation: handle the longest-waiting session first.
+		if len(brief.Projects) > 0 {
+			var longestWait time.Duration
+			var longestProject string
+			for _, p := range brief.Projects {
+				for _, ws := range p.WaitingSessions {
+					d := time.Since(ws.WaitingSince)
+					if d > longestWait {
+						longestWait = d
+						longestProject = p.Name
+					}
+				}
+			}
+			if longestProject != "" {
+				b.WriteString(fmt.Sprintf("\n  → Handle %s first — longest waiting.\n", longestProject))
+			}
 		}
 	}
 
