@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/getopsdeck/opsdeck/internal/intel"
 	"github.com/getopsdeck/opsdeck/internal/tui"
+	"github.com/getopsdeck/opsdeck/internal/web"
 )
 
 // Set via ldflags at build time.
@@ -49,6 +50,17 @@ func main() {
 			return
 		case "metrics":
 			intel.RunMetricsReport()
+			return
+		case "web", "serve":
+			addr := "localhost:7070"
+			if len(os.Args) > 2 {
+				addr = os.Args[2]
+			}
+			srv := web.NewServer(addr)
+			if err := srv.Start(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 			return
 		}
 	}
