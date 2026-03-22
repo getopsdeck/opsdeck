@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/getopsdeck/opsdeck/internal/discovery"
@@ -171,77 +172,77 @@ func EnrichBrief(brief *DailyBrief, projectsDir, sessionsDir string, since time.
 		projectSessions[proj.Name] = proj.Sessions
 	}
 
+	// Parallelize per-project enrichment for speed.
+	var wg sync.WaitGroup
 	for i := range brief.Projects {
-		pb := &brief.Projects[i]
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			pb := &brief.Projects[idx]
 
-		// Git branch info: use the project path for git queries.
-		if pb.Path != "" {
-			gi := discovery.GetGitInfo(pb.Path)
-			pb.Branch = gi.Branch
-			pb.IsDirty = gi.IsDirty
-			pb.LatestTag = gi.LatestTag
-		}
+			// Git branch info.
+			if pb.Path != "" {
+				gi := discovery.GetGitInfo(pb.Path)
+				pb.Branch = gi.Branch
+				pb.IsDirty = gi.IsDirty
+				pb.LatestTag = gi.LatestTag
+			}
 
-		// Detect waiting sessions and track last activity.
-		if sessions, ok := projectSessions[pb.Name]; ok {
-			for _, sess := range sessions {
-				transcriptPath := discovery.FindTranscriptPath(projectsDir, sess.CWD, sess.ID)
-				if transcriptPath == "" {
-					continue
-				}
+			// Detect waiting sessions and track last activity.
+			if sessions, ok := projectSessions[pb.Name]; ok {
+				for _, sess := range sessions {
+					transcriptPath := discovery.FindTranscriptPath(projectsDir, sess.CWD, sess.ID)
+					if transcriptPath == "" {
+						continue
+					}
 
-				// Get last activity time.
-				lastActivity, err := discovery.ReadLastActivity(transcriptPath)
-				if err != nil || lastActivity.IsZero() {
-					lastActivity = sess.StartedAt
-				}
+					lastActivity, err := discovery.ReadLastActivity(transcriptPath)
+					if err != nil || lastActivity.IsZero() {
+						lastActivity = sess.StartedAt
+					}
 
-				// Track the most recent activity for this project.
-				if lastActivity.After(pb.LastActive) {
-					pb.LastActive = lastActivity
-				}
+					if lastActivity.After(pb.LastActive) {
+						pb.LastActive = lastActivity
+					}
 
-				// Check if the session is in a waiting/idle state (alive but inactive).
-				alive := discovery.CheckSession(sess.PID, sess.StartedAt)
-				state := discovery.ClassifyState(alive, lastActivity)
+					alive := discovery.CheckSession(sess.PID, sess.StartedAt)
+					state := discovery.ClassifyState(alive, lastActivity)
 
-				if state == discovery.StateWaiting || state == discovery.StateIdle {
-					// Read transcript to get what the AI was last doing.
-					summary, err := ExtractRecent(transcriptPath, time.Time{})
-					lastMsg := ""
-					if err == nil {
-						// Prefer assistant's last message (what it was doing).
-						// Fall back to user's last message if no assistant output.
-						if summary.LastAssistMsg != "" {
-							// Replace newlines with spaces for single-line display.
-							clean := strings.ReplaceAll(summary.LastAssistMsg, "\n", " ")
-							clean = strings.Join(strings.Fields(clean), " ")
-							lastMsg = truncate(clean, 40)
-						} else if summary.LastUserMsg != "" {
-							lastMsg = truncate(summary.LastUserMsg, 40)
+					if state == discovery.StateWaiting || state == discovery.StateIdle {
+						summary, err := ExtractRecent(transcriptPath, time.Time{})
+						lastMsg := ""
+						if err == nil {
+							if summary.LastAssistMsg != "" {
+								clean := strings.ReplaceAll(summary.LastAssistMsg, "\n", " ")
+								clean = strings.Join(strings.Fields(clean), " ")
+								lastMsg = truncate(clean, 40)
+							} else if summary.LastUserMsg != "" {
+								lastMsg = truncate(summary.LastUserMsg, 40)
+							}
 						}
+
+						ws := WaitingSession{
+							SessionID:    sess.ID,
+							ProjectName:  pb.Name,
+							WaitingSince: lastActivity,
+							LastUserMsg:  lastMsg,
+						}
+						pb.WaitingSessions = append(pb.WaitingSessions, ws)
 					}
 
-					ws := WaitingSession{
-						SessionID:    sess.ID,
-						ProjectName:  pb.Name,
-						WaitingSince: lastActivity,
-						LastUserMsg:  lastMsg,
+					if pb.Branch == "" && sess.CWD != "" {
+						gi := discovery.GetGitInfo(sess.CWD)
+						pb.Branch = gi.Branch
+						pb.IsDirty = gi.IsDirty
 					}
-					pb.WaitingSessions = append(pb.WaitingSessions, ws)
-				}
-
-				// Also try git info from session CWD if project path is empty.
-				if pb.Branch == "" && sess.CWD != "" {
-					gi := discovery.GetGitInfo(sess.CWD)
-					pb.Branch = gi.Branch
-					pb.IsDirty = gi.IsDirty
 				}
 			}
-		}
+		}(i)
 	}
+	wg.Wait()
 
-	// Cost estimate.
+	// Cost estimate (also parallelized with enrichment above would add complexity;
+	// keep it sequential since it's one call).
 	costReport, err := GenerateCostReport(projectsDir, sessionsDir, since)
 	if err == nil {
 		brief.CostEstimate = costReport.TotalCost
