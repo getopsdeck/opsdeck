@@ -85,6 +85,10 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
+			printHelp()
+			os.Exit(1)
 		}
 	}
 
@@ -122,6 +126,7 @@ Commands:
 
 Flags:
   brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
+  brief --verbose (-V)       Use detailed format instead of secretary brief
   costs --since <duration>   Only include costs from last N hours
 
 OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
@@ -358,17 +363,17 @@ func runResume() {
 // runBrief handles the "opsdeck brief" subcommand. It generates a daily brief
 // and prints it to stdout, suitable for scripts and cron jobs.
 func runBrief() {
-	// Parse --since flag from remaining args.
+	// Parse flags from remaining args.
 	sinceValue := ""
+	verbose := false
 	for i := 2; i < len(os.Args); i++ {
-		if os.Args[i] == "--since" && i+1 < len(os.Args) {
+		switch {
+		case os.Args[i] == "--since" && i+1 < len(os.Args):
 			sinceValue = os.Args[i+1]
-			break
-		}
-		// Also support --since=value form.
-		if len(os.Args[i]) > 8 && os.Args[i][:8] == "--since=" {
+		case len(os.Args[i]) > 8 && os.Args[i][:8] == "--since=":
 			sinceValue = os.Args[i][8:]
-			break
+		case os.Args[i] == "--verbose" || os.Args[i] == "-V":
+			verbose = true
 		}
 	}
 
@@ -393,5 +398,14 @@ func runBrief() {
 		os.Exit(1)
 	}
 
-	fmt.Print(intel.FormatDailyBrief(brief))
+	// Enrich brief with cost data and per-session details for the secretary format.
+	if !verbose {
+		intel.EnrichBrief(&brief, projectsDir, sessionsDir, since)
+	}
+
+	if verbose {
+		fmt.Print(intel.FormatDailyBriefVerbose(brief))
+	} else {
+		fmt.Print(intel.FormatDailyBrief(brief))
+	}
 }

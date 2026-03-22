@@ -472,14 +472,11 @@ func FormatDailyBrief(brief DailyBrief) string {
 			summary = defaultOneLine(p)
 		}
 
+		// Show file count if available (but don't duplicate edit count already in OneLine).
 		editInfo := ""
-		if p.TotalEdits > 0 {
-			fileCount := len(p.FilesChanged)
-			if fileCount > 0 {
-				editInfo = fmt.Sprintf(", %d edits across %d files", p.TotalEdits, fileCount)
-			} else {
-				editInfo = fmt.Sprintf(", %d edits", p.TotalEdits)
-			}
+		fileCount := len(p.FilesChanged)
+		if fileCount > 0 {
+			editInfo = fmt.Sprintf(", %d files changed", fileCount)
 		}
 
 		branchInfo := ""
@@ -524,8 +521,15 @@ func defaultOneLine(p ProjectBrief) string {
 		// Use the first key activity, truncated.
 		return truncate(p.KeyActivities[0], 60)
 	}
-	if p.TotalEdits > 0 {
-		return "active"
+	if p.TotalEdits > 0 || p.TotalCommands > 0 {
+		var parts []string
+		if p.TotalEdits > 0 {
+			parts = append(parts, fmt.Sprintf("%d edits", p.TotalEdits))
+		}
+		if p.TotalCommands > 0 {
+			parts = append(parts, fmt.Sprintf("%d commands", p.TotalCommands))
+		}
+		return strings.Join(parts, ", ")
 	}
 	return "no notable activity"
 }

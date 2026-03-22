@@ -546,8 +546,8 @@ func TestFormatDailyBrief_ProjectUpdates(t *testing.T) {
 	if !strings.Contains(output, "shipped v0.9.0") {
 		t.Error("should contain one-line summary")
 	}
-	if !strings.Contains(output, "151 edits") {
-		t.Error("should contain edit count in project line")
+	if !strings.Contains(output, "files changed") && !strings.Contains(output, "edits") {
+		t.Error("should contain file or edit info in project line")
 	}
 	if !strings.Contains(output, "main*") {
 		t.Error("should show branch with dirty marker")

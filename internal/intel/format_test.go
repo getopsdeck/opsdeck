@@ -26,15 +26,16 @@ func TestFormatDailyBrief_HasExecutiveSummary(t *testing.T) {
 
 	output := FormatDailyBrief(brief)
 
-	// Should have a one-line executive summary near the top.
+	// Secretary format header shows project and session counts.
 	if !strings.Contains(output, "2 projects") {
-		t.Errorf("executive summary should mention project count, got:\n%s", output)
+		t.Errorf("header should mention project count, got:\n%s", output)
 	}
-	if !strings.Contains(output, "20 edits") {
-		t.Errorf("executive summary should mention edit count, got:\n%s", output)
+	if !strings.Contains(output, "5 sessions") {
+		t.Errorf("header should mention session count, got:\n%s", output)
 	}
-	if !strings.Contains(output, "8 commands") {
-		t.Errorf("executive summary should mention command count, got:\n%s", output)
+	// Per-project edits should appear in PROJECT UPDATES.
+	if !strings.Contains(output, "15 edits") {
+		t.Errorf("should show per-project edit count, got:\n%s", output)
 	}
 }
 
