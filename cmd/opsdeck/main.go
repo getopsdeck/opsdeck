@@ -45,6 +45,9 @@ func main() {
 		case "version", "--version", "-v":
 			fmt.Printf("opsdeck %s (commit %s, built %s)\n", version, commit, date)
 			return
+		case "help", "--help", "-h":
+			printHelp()
+			return
 		case "brief":
 			runBrief()
 			return
@@ -76,6 +79,31 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func printHelp() {
+	fmt.Printf(`opsdeck %s — Chief of Staff for Claude Code
+
+Usage: opsdeck [command]
+
+Commands:
+  (default)    Real-time TUI dashboard
+  brief        Daily briefing across all projects
+  metrics      Today vs yesterday productivity comparison
+  costs        Token usage and estimated spend per session
+  ai-brief     AI-powered morning brief via claude -p (costs tokens)
+  web [addr]   Web dashboard at addr (default: localhost:7070)
+  version      Show version information
+  help         Show this help message
+
+Flags:
+  brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
+
+OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
+read-only — it never modifies your sessions or sends data anywhere.
+
+GitHub: https://github.com/getopsdeck/opsdeck
+`, version)
 }
 
 // runBrief handles the "opsdeck brief" subcommand. It generates a daily brief
