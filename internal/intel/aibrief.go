@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -56,10 +57,12 @@ func RunAIBrief() {
 	// Build the prompt.
 	prompt := aiBriefPrompt + structuredBrief + "\n\nCost data:\n" + costText
 
-	// Run claude -p with the prompt.
+	// Run claude -p with the prompt piped via stdin to avoid ARG_MAX limits
+	// and prevent transcript data from appearing in the process list.
 	fmt.Fprintln(os.Stderr, "Generating AI brief (this costs tokens)...")
 
-	cmd := exec.Command(claudePath, "-p", prompt)
+	cmd := exec.Command(claudePath, "-p", "-")
+	cmd.Stdin = strings.NewReader(prompt)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
