@@ -11,9 +11,15 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "brief" {
-		runBrief()
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "brief":
+			runBrief()
+			return
+		case "metrics":
+			intel.RunMetricsReport()
+			return
+		}
 	}
 
 	p := tea.NewProgram(tui.NewApp())
