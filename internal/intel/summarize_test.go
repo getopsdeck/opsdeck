@@ -193,16 +193,16 @@ func TestSummarizeActivities_MixedRealSession(t *testing.T) {
 
 	result := SummarizeActivities(activities)
 
-	// Must contain user requests.
-	foundUserReq := false
+	// Must contain action items (edits, git ops, etc.) first.
+	foundAction := false
 	for _, s := range result {
-		if strings.Contains(s, "Fix the auth bug") || strings.Contains(s, "rate limiting") {
-			foundUserReq = true
+		if strings.Contains(s, "Edited") || strings.Contains(s, "ommit") || strings.Contains(s, "command") {
+			foundAction = true
 			break
 		}
 	}
-	if !foundUserReq {
-		t.Errorf("expected user requests in summary, got: %v", result)
+	if !foundAction {
+		t.Errorf("expected action items in summary, got: %v", result)
 	}
 
 	// Must NOT contain raw tool calls.

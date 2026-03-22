@@ -49,11 +49,7 @@ func SummarizeActivities(activities []Activity) []string {
 
 	var result []string
 
-	// User requests go first -- they are the "what".
-	for _, req := range userRequests {
-		result = append(result, req)
-	}
-
+	// Actions first — what the AI actually did (edits, git, commands).
 	// Grouped edits.
 	if len(editDescs) > 0 {
 		result = append(result, summarizeEdits(editDescs))
@@ -78,9 +74,23 @@ func SummarizeActivities(activities []Activity) []string {
 		}
 	}
 
+	// User requests last — only if there's room and they add context.
+	if len(userRequests) > 0 && len(result) < 4 {
+		// Show at most 2 user requests to leave room for activity items.
+		maxReq := 2
+		if len(result)+maxReq > 5 {
+			maxReq = 5 - len(result)
+		}
+		for i, req := range userRequests {
+			if i >= maxReq {
+				break
+			}
+			result = append(result, req)
+		}
+	}
+
 	// Fallback: if the session had only tool calls (Grep/Glob/Agent) and nothing
-	// else generated a summary line, show a minimal activity label instead of
-	// returning nothing (which would render as "No activity").
+	// else generated a summary line, show a minimal activity label.
 	if len(result) == 0 && toolCallCount > 0 {
 		result = append(result, fmt.Sprintf("Explored codebase (%d tool calls)", toolCallCount))
 	}
