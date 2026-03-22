@@ -71,6 +71,10 @@ const dashboardHTML = `<!DOCTYPE html>
   .stat-waiting { background: #e0af6822; color: var(--yellow); border: 1px solid #e0af6844; }
   .stat-idle { background: #565f8922; color: var(--fg-dark); border: 1px solid #565f8944; }
   .stat-dead { background: #f7768e22; color: var(--red); border: 1px solid #f7768e44; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+  .state-waiting .state-icon { animation: pulse 2s ease-in-out infinite; }
+  .state-busy .state-icon { animation: pulse 1s ease-in-out infinite; }
+  .live-dot { display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%; margin-right:8px; animation: pulse 2s ease-in-out infinite; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -153,7 +157,7 @@ const dashboardHTML = `<!DOCTYPE html>
 <body>
 <header>
   <div>OpsDeck <span class="subtitle">Chief of Staff for Claude Code</span></div>
-  <div id="session-count">Loading...</div>
+  <div><span class="live-dot"></span><span id="session-count">Loading...</span></div>
 </header>
 <div class="container">
   <div class="stats" id="stats"></div>
