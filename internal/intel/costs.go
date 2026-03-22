@@ -31,7 +31,7 @@ type modelPricing struct {
 type SessionCost struct {
 	SessionID    string
 	Project      string
-	Model        string
+	Model        string // predominant model (most messages)
 	InputTokens  int64
 	OutputTokens int64
 	CacheWrite   int64
@@ -63,6 +63,21 @@ type transcriptMsg struct {
 	Usage transcriptUsage  `json:"usage"`
 }
 
+// estimateCostForMessage calculates the cost of a single message given its model and usage.
+func estimateCostForMessage(model string, usage transcriptUsage) float64 {
+	p, ok := pricing[model]
+	if !ok {
+		// Default to Sonnet pricing for unknown models.
+		p = pricing["claude-sonnet-4-6"]
+	}
+
+	cost := float64(usage.InputTokens) * p.Input / 1_000_000
+	cost += float64(usage.OutputTokens) * p.Output / 1_000_000
+	cost += float64(usage.CacheCreationInputTokens) * p.CacheWrite / 1_000_000
+	cost += float64(usage.CacheReadInputTokens) * p.CacheRead / 1_000_000
+	return cost
+}
+
 // ExtractCosts reads a transcript JSONL and returns token usage/cost data.
 func ExtractCosts(path string, since time.Time) (SessionCost, error) {
 	f, err := os.Open(path)
@@ -73,6 +88,11 @@ func ExtractCosts(path string, since time.Time) (SessionCost, error) {
 
 	var cost SessionCost
 	filterByTime := !since.IsZero()
+
+	// Track message counts per model to determine the predominant model.
+	// lastModel tracks insertion order for tiebreaking.
+	modelCounts := make(map[string]int)
+	var lastModel string
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
@@ -117,35 +137,49 @@ func ExtractCosts(path string, since time.Time) (SessionCost, error) {
 		}
 
 		cost.MessageCount++
-		if msg.Model != "" {
-			cost.Model = msg.Model
-		}
 		cost.InputTokens += msg.Usage.InputTokens
 		cost.OutputTokens += msg.Usage.OutputTokens
 		cost.CacheWrite += msg.Usage.CacheCreationInputTokens
 		cost.CacheRead += msg.Usage.CacheReadInputTokens
+
+		// Accumulate cost at the per-message model rate to handle model switches correctly.
+		cost.EstCostUSD += estimateCostForMessage(msg.Model, msg.Usage)
+
+		if msg.Model != "" {
+			modelCounts[msg.Model]++
+			lastModel = msg.Model
+		}
 	}
 
 	cost.TotalTokens = cost.InputTokens + cost.OutputTokens + cost.CacheWrite + cost.CacheRead
-	cost.EstCostUSD = estimateCost(cost)
+
+	// Set Model to the predominant model (most messages) for display purposes.
+	// On a tie, the last model seen wins (matches intuition: most recent work).
+	var maxCount int
+	for model, count := range modelCounts {
+		if count > maxCount {
+			maxCount = count
+			cost.Model = model
+		}
+	}
+	// Apply last-seen tiebreaker: if the last model is tied for the top count, prefer it.
+	if lastModel != "" && modelCounts[lastModel] == maxCount {
+		cost.Model = lastModel
+	}
 
 	return cost, nil
 }
 
-// estimateCost calculates the estimated USD cost based on token counts and model.
+// estimateCost calculates the estimated USD cost for a SessionCost using its Model field.
+// It is used by tests and kept as a helper for single-model sessions.
 func estimateCost(c SessionCost) float64 {
-	p, ok := pricing[c.Model]
-	if !ok {
-		// Default to Sonnet pricing for unknown models.
-		p = pricing["claude-sonnet-4-6"]
+	usage := transcriptUsage{
+		InputTokens:              c.InputTokens,
+		OutputTokens:             c.OutputTokens,
+		CacheCreationInputTokens: c.CacheWrite,
+		CacheReadInputTokens:     c.CacheRead,
 	}
-
-	cost := float64(c.InputTokens) * p.Input / 1_000_000
-	cost += float64(c.OutputTokens) * p.Output / 1_000_000
-	cost += float64(c.CacheWrite) * p.CacheWrite / 1_000_000
-	cost += float64(c.CacheRead) * p.CacheRead / 1_000_000
-
-	return cost
+	return estimateCostForMessage(c.Model, usage)
 }
 
 // GenerateCostReport scans all sessions and produces a cost report.

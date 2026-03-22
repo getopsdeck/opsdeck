@@ -304,7 +304,7 @@ function renderFiltered() {
   } else {
     Object.keys(groups).sort().forEach(project => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="6" class="project-group">' + project + '/ (' + groups[project].length + ')</td>';
+      tr.innerHTML = '<td colspan="6" class="project-group">' + escapeHtml(project) + '/ (' + groups[project].length + ')</td>';
       tbody.appendChild(tr);
 
       groups[project].forEach(s => {
@@ -314,11 +314,11 @@ function renderFiltered() {
         const ago = timeAgo(new Date(s.started_at));
         row.innerHTML =
           '<td class="state-icon">' + (stateIcons[s.state] || '?') + '</td>' +
-          '<td>' + s.project + '</td>' +
-          '<td style="font-family:monospace;font-size:12px">' + s.id.substring(0,12) + '</td>' +
-          '<td>' + s.state.toUpperCase() + '</td>' +
+          '<td>' + escapeHtml(s.project) + '</td>' +
+          '<td style="font-family:monospace;font-size:12px">' + escapeHtml(s.id.substring(0,12)) + '</td>' +
+          '<td>' + escapeHtml(s.state.toUpperCase()) + '</td>' +
           '<td>' + ago + '</td>' +
-          '<td style="color:var(--fg-dark)">' + (s.working_on || formatStats(s)) + '</td>';
+          '<td style="color:var(--fg-dark)">' + (s.working_on ? escapeHtml(s.working_on) : formatStats(s)) + '</td>';
         tbody.appendChild(row);
       });
     });

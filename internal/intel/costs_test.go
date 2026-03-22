@@ -332,8 +332,19 @@ func TestExtractCosts_MissingFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// estimateCost tests
+// estimateCostForMessage tests
 // ---------------------------------------------------------------------------
+
+// testEstimateCost is a helper that adapts the old SessionCost-based tests
+// to the new per-message estimateCostForMessage function.
+func testEstimateCost(c SessionCost) float64 {
+	return estimateCostForMessage(c.Model, transcriptUsage{
+		InputTokens:              c.InputTokens,
+		OutputTokens:             c.OutputTokens,
+		CacheCreationInputTokens: c.CacheWrite,
+		CacheReadInputTokens:     c.CacheRead,
+	})
+}
 
 func TestEstimateCost_OpusPricing(t *testing.T) {
 	c := SessionCost{
@@ -344,7 +355,7 @@ func TestEstimateCost_OpusPricing(t *testing.T) {
 		CacheRead:    1_000_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	// Opus: input=15, output=75, cache_write=18.75, cache_read=1.50
 	want := 15.0 + 75.0 + 18.75 + 1.50
 	if math.Abs(got-want) > 0.001 {
@@ -361,7 +372,7 @@ func TestEstimateCost_SonnetPricing(t *testing.T) {
 		CacheRead:    1_000_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	// Sonnet: input=3, output=15, cache_write=3.75, cache_read=0.30
 	want := 3.0 + 15.0 + 3.75 + 0.30
 	if math.Abs(got-want) > 0.001 {
@@ -378,7 +389,7 @@ func TestEstimateCost_HaikuPricing(t *testing.T) {
 		CacheRead:    1_000_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	// Haiku: input=0.80, output=4.0, cache_write=1.0, cache_read=0.08
 	want := 0.80 + 4.0 + 1.0 + 0.08
 	if math.Abs(got-want) > 0.001 {
@@ -395,7 +406,7 @@ func TestEstimateCost_UnknownModelDefaultsToSonnet(t *testing.T) {
 		CacheRead:    1_000_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	// Should fall back to Sonnet pricing.
 	want := 3.0 + 15.0 + 3.75 + 0.30
 	if math.Abs(got-want) > 0.001 {
@@ -412,7 +423,7 @@ func TestEstimateCost_EmptyModelDefaultsToSonnet(t *testing.T) {
 		CacheRead:    0,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	want := 3.0 + 15.0 // input + output only, Sonnet pricing
 	if math.Abs(got-want) > 0.001 {
 		t.Errorf("estimateCost(empty model) = %.4f, want %.4f", got, want)
@@ -421,7 +432,7 @@ func TestEstimateCost_EmptyModelDefaultsToSonnet(t *testing.T) {
 
 func TestEstimateCost_ZeroTokens(t *testing.T) {
 	c := SessionCost{Model: "claude-opus-4-6"}
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	if got != 0 {
 		t.Errorf("estimateCost(zero tokens) = %f, want 0", got)
 	}
@@ -433,7 +444,7 @@ func TestEstimateCost_OnlyInputTokens(t *testing.T) {
 		InputTokens: 500_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	want := 500_000.0 * 15.0 / 1_000_000 // 7.5
 	if math.Abs(got-want) > 0.001 {
 		t.Errorf("estimateCost(input only) = %.4f, want %.4f", got, want)
@@ -447,7 +458,7 @@ func TestEstimateCost_OnlyCacheTokens(t *testing.T) {
 		CacheRead:  800_000,
 	}
 
-	got := estimateCost(c)
+	got := testEstimateCost(c)
 	wantWrite := 200_000.0 * 18.75 / 1_000_000
 	wantRead := 800_000.0 * 1.50 / 1_000_000
 	want := wantWrite + wantRead

@@ -195,8 +195,9 @@ func (s *Server) cachedExtract(path string) (intel.SessionSummary, intel.Session
 	s.cacheMu.Unlock()
 
 	// Phase 2: compute outside the lock.
+	// Use a 24-hour window so the web dashboard shows "today" data, not all-time.
 	summary, _ := intel.ExtractSummary(path)
-	cost, _ := intel.ExtractCosts(path, time.Time{})
+	cost, _ := intel.ExtractCosts(path, time.Now().Add(-24*time.Hour))
 
 	// Phase 3: store under lock.
 	s.cacheMu.Lock()
