@@ -571,39 +571,45 @@ function loadBrief() {
       const content = document.getElementById('brief-content');
       const parts = [];
 
-      // Attention items
-      if (brief.Attention && brief.Attention.length > 0) {
-        brief.Attention.forEach(a => {
-          parts.push('<div class="brief-attention">&#9888; ' + escapeHtml(a) + '</div>');
-        });
-      }
-
-      // Project updates
-      if (brief.Projects && brief.Projects.length > 0) {
+      // Waiting sessions (from enriched WaitingSessions)
+      let waitCount = 0;
+      if (brief.Projects) {
         brief.Projects.forEach(p => {
-          if (p.NeedsAttention) return; // already in attention
-          if (p.KeyActivities && p.KeyActivities.length > 0) {
-            const act = p.KeyActivities[0];
-            parts.push('<div class="brief-update"><b>' + escapeHtml(p.Name) + ':</b> ' + escapeHtml(act) + '</div>');
-          } else if (p.SessionCount > 0) {
-            parts.push('<div class="brief-idle"><b>' + escapeHtml(p.Name) + ':</b> ' + p.SessionCount + ' session' + (p.SessionCount !== 1 ? 's' : '') + ', idle</div>');
+          if (p.WaitingSessions && p.WaitingSessions.length > 0) {
+            p.WaitingSessions.forEach(ws => {
+              waitCount++;
+              if (waitCount <= 5) {
+                const msg = ws.LastUserMsg ? ' \u2014 ' + escapeHtml(ws.LastUserMsg) : '';
+                parts.push('<div class="brief-attention">! ' + escapeHtml(p.Name) + ' (' + escapeHtml(ws.SessionID.substring(0,8)) + ')' + msg + '</div>');
+              }
+            });
           }
         });
       }
 
-      // Total spend
-      if (brief.TotalEdits || brief.TotalCommands) {
-        const summary = [];
-        if (brief.TotalEdits) summary.push(brief.TotalEdits + ' edits');
-        if (brief.TotalCommands) summary.push(brief.TotalCommands + ' commands');
-        parts.push('<div class="brief-idle" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">' + summary.join(', ') + ' today across ' + brief.TotalSessions + ' session' + (brief.TotalSessions !== 1 ? 's' : '') + '</div>');
+      // Project updates using OneLine
+      if (brief.Projects) {
+        brief.Projects.forEach(p => {
+          const summary = p.OneLine || (p.TotalEdits > 0 ? p.TotalEdits + ' edits' : '');
+          if (!summary && p.ActiveCount === 0) return;
+          const branch = p.Branch ? ' [' + escapeHtml(p.Branch) + (p.IsDirty ? '*' : '') + ']' : '';
+          const tag = p.LatestTag ? ' ' + escapeHtml(p.LatestTag) : '';
+          if (summary) {
+            parts.push('<div class="brief-update"><b>' + escapeHtml(p.Name) + '</b> \u2014 ' + escapeHtml(summary) + '<span style="color:var(--cyan)">' + branch + tag + '</span></div>');
+          }
+        });
       }
 
-      if (parts.length === 0) {
-        content.innerHTML = '<div class="brief-idle">No activity to report yet today.</div>';
-      } else {
-        content.innerHTML = parts.join('');
+      // Cost + totals
+      const footer = [];
+      if (brief.TotalEdits) footer.push(brief.TotalEdits + ' edits');
+      if (brief.TotalCommands) footer.push(brief.TotalCommands + ' commands');
+      if (brief.CostEstimate > 0) footer.push('~$' + Math.round(brief.CostEstimate) + ' est.');
+      if (footer.length > 0) {
+        parts.push('<div class="brief-idle" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">' + footer.join(' \u00b7 ') + '</div>');
       }
+
+      content.innerHTML = parts.length > 0 ? parts.join('') : '<div class="brief-idle">No activity today.</div>';
     })
     .catch(() => {
       document.getElementById('brief-content').innerHTML = '<div class="brief-idle">Brief unavailable.</div>';
