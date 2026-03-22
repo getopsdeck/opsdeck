@@ -10,13 +10,14 @@ import (
 
 // TableSession is the data needed to render a session row.
 type TableSession struct {
-	ID        string
-	PID       int
-	State     string
-	Project   string
-	StartedAt time.Time
-	WorkingOn string
-	LastLine  string
+	ID             string
+	PID            int
+	State          string
+	Project        string
+	StartedAt      time.Time
+	WorkingOn      string
+	LastLine       string
+	TranscriptPath string
 }
 
 // TableModel is the Bubble Tea model for the session table.

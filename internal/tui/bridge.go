@@ -98,13 +98,14 @@ func DiscoverSessions() []Session {
 
 		// Convert to TUI Session.
 		sessions = append(sessions, Session{
-			ID:        rs.ID,
-			PID:       rs.PID,
-			State:     string(state),
-			Project:   rs.ProjectName,
-			StartedAt: rs.StartedAt,
-			WorkingOn: workingOn,
-			LastLine:  lastLine,
+			ID:             rs.ID,
+			PID:            rs.PID,
+			State:          string(state),
+			Project:        rs.ProjectName,
+			StartedAt:      rs.StartedAt,
+			WorkingOn:      workingOn,
+			LastLine:       lastLine,
+			TranscriptPath: transcriptPath,
 		})
 	}
 
