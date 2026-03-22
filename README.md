@@ -74,8 +74,12 @@ opsdeck brief --since 48h   # last 2 days
 # Productivity metrics — today vs yesterday comparison
 opsdeck metrics
 
+# One-line status — for shell prompts or tmux
+opsdeck status
+
 # List all sessions — compact overview
 opsdeck list               # or: opsdeck ls
+opsdeck list --json        # JSON output for scripting
 
 # Cost analytics — powered by ccusage (https://github.com/ryoppippi/ccusage)
 opsdeck costs              # delegates to npx ccusage --breakdown
