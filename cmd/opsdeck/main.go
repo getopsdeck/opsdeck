@@ -140,6 +140,7 @@ Commands:
 Flags:
   brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
   brief --verbose (-V)       Use detailed format instead of secretary brief
+  list --json                Output session data as JSON for scripting
   costs --since <duration>   Only include costs from last N hours
 
 OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
