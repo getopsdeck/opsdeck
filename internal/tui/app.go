@@ -1,12 +1,14 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/getopsdeck/opsdeck/internal/intel"
 	"github.com/getopsdeck/opsdeck/internal/tui/components"
 	"github.com/getopsdeck/opsdeck/internal/tui/views"
 )
@@ -212,13 +214,14 @@ func (a *App) applyFilters() {
 	tableSessions := make([]components.TableSession, len(filtered))
 	for i, s := range filtered {
 		tableSessions[i] = components.TableSession{
-			ID:        s.ID,
-			PID:       s.PID,
-			State:     s.State,
-			Project:   s.Project,
-			StartedAt: s.StartedAt,
-			WorkingOn: s.WorkingOn,
-			LastLine:  s.LastLine,
+			ID:             s.ID,
+			PID:            s.PID,
+			State:          s.State,
+			Project:        s.Project,
+			StartedAt:      s.StartedAt,
+			WorkingOn:      s.WorkingOn,
+			LastLine:       s.LastLine,
+			TranscriptPath: s.TranscriptPath,
 		}
 	}
 	a.table.SetSessions(tableSessions)
@@ -232,6 +235,8 @@ func (a *App) applyFilters() {
 }
 
 // updateDetail refreshes the detail panel content based on current selection.
+// When a transcript is available, it shows a rich activity summary from the
+// intel module instead of just basic metadata.
 func (a *App) updateDetail() {
 	sel := a.table.SelectedSession()
 	if sel == nil {
@@ -248,6 +253,57 @@ func (a *App) updateDetail() {
 	if sel.WorkingOn != "" {
 		lines = append(lines, a.styles.StatusKey.Render("Task:    ")+sel.WorkingOn)
 	}
+
+	// Try to extract rich activity data from transcript.
+	if sel.TranscriptPath != "" {
+		summary, err := intel.ExtractSummary(sel.TranscriptPath)
+		if err == nil && summary.TotalMessages > 0 {
+			lines = append(lines, "")
+
+			// Stats line.
+			var stats []string
+			if summary.EditCount > 0 {
+				stats = append(stats, fmt.Sprintf("%d edits", summary.EditCount))
+			}
+			if summary.BashCount > 0 {
+				stats = append(stats, fmt.Sprintf("%d commands", summary.BashCount))
+			}
+			if len(summary.FilesChanged) > 0 {
+				stats = append(stats, fmt.Sprintf("%d files", len(summary.FilesChanged)))
+			}
+			if summary.ErrorCount > 0 {
+				stats = append(stats, fmt.Sprintf("%d errors", summary.ErrorCount))
+			}
+			stats = append(stats, fmt.Sprintf("%d messages", summary.TotalMessages))
+			lines = append(lines, a.styles.StatusKey.Render("Stats:   ")+strings.Join(stats, " | "))
+
+			// Condensed activity bullets.
+			condensed := intel.SummarizeActivities(summary.Activities)
+			if len(condensed) > 0 {
+				lines = append(lines, "")
+				lines = append(lines, a.styles.HelpDesc.Render("Activity:"))
+				for _, bullet := range condensed {
+					lines = append(lines, "  * "+bullet)
+				}
+			}
+
+			// Last user request.
+			if summary.LastUserMsg != "" {
+				lines = append(lines, "")
+				msg := summary.LastUserMsg
+				if len(msg) > 100 {
+					msg = msg[:97] + "..."
+				}
+				lines = append(lines, a.styles.HelpDesc.Render("Last request:"))
+				lines = append(lines, "  "+msg)
+			}
+
+			a.dashboard.DetailBody = strings.Join(lines, "\n")
+			return
+		}
+	}
+
+	// Fallback: basic detail with last output line.
 	lines = append(lines, "")
 	lines = append(lines, a.styles.HelpDesc.Render("Last output:"))
 	lines = append(lines, "  "+sel.LastLine)

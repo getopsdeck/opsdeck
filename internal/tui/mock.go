@@ -7,13 +7,14 @@ import (
 
 // Session represents a Claude Code session discovered on the system.
 type Session struct {
-	ID        string
-	PID       int
-	State     string
-	Project   string
-	StartedAt time.Time
-	WorkingOn string
-	LastLine  string // last line of transcript (preview)
+	ID             string
+	PID            int
+	State          string
+	Project        string
+	StartedAt      time.Time
+	WorkingOn      string
+	LastLine       string // last line of transcript (preview)
+	TranscriptPath string // path to transcript JSONL for detail panel
 }
 
 // mockSessions returns hardcoded sessions for testing the TUI layout.
