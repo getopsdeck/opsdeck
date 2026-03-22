@@ -460,8 +460,9 @@ func FormatDailyBrief(brief DailyBrief) string {
 	}
 
 	for _, p := range brief.Projects {
-		if p.ActiveCount == 0 && p.TotalEdits == 0 {
-			// Idle project.
+		hasWaiting := len(p.WaitingSessions) > 0
+		if p.ActiveCount == 0 && p.TotalEdits == 0 && !hasWaiting {
+			// Truly idle project (no waiting sessions either).
 			lastActiveStr := "unknown"
 			if !p.LastActive.IsZero() {
 				lastActiveStr = formatTimeAgo(p.LastActive)
@@ -475,10 +476,13 @@ func FormatDailyBrief(brief DailyBrief) string {
 			continue
 		}
 
-		// Active project line.
+		// Active or waiting project line.
 		summary := p.OneLine
 		if summary == "" {
 			summary = defaultOneLine(p)
+		}
+		if summary == "no notable activity" && hasWaiting {
+			summary = fmt.Sprintf("%d sessions waiting", len(p.WaitingSessions))
 		}
 
 		// Show file count if available (but don't duplicate edit count already in OneLine).
