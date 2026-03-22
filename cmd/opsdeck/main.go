@@ -262,9 +262,21 @@ func runList() {
 				icon = "✕"
 			}
 
+			// For WAITING sessions, show how long they've been waiting.
+			extra := s.StartedAt.Format("Jan 02 15:04")
+			if state == discovery.StateWaiting {
+				waitDur := time.Since(lastActivity)
+				if waitDur.Hours() >= 24 {
+					extra = fmt.Sprintf("waiting %.0fd", waitDur.Hours()/24)
+				} else if waitDur.Hours() >= 1 {
+					extra = fmt.Sprintf("waiting %.0fh", waitDur.Hours())
+				} else {
+					extra = fmt.Sprintf("waiting %.0fm", waitDur.Minutes())
+				}
+			}
+
 			fmt.Printf("%s %-12s %-12s %-8s %-18s %s\n",
-				icon, id, p.Name, string(state), branch,
-				s.StartedAt.Format("Jan 02 15:04"))
+				icon, id, p.Name, string(state), branch, extra)
 		}
 	}
 
