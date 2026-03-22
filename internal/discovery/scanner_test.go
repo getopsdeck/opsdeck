@@ -172,3 +172,88 @@ func TestGroupByProject(t *testing.T) {
 		t.Errorf("projectB sessions = %d, want 1", len(pb.Sessions))
 	}
 }
+
+// TestGroupByProject_Disambiguate verifies that CWDs sharing the same basename
+// are expanded to include parent components until names are unique.
+func TestGroupByProject_Disambiguate(t *testing.T) {
+	t.Run("three levels needed", func(t *testing.T) {
+		// /src/work/api and /lib/work/api share basename "api" AND the
+		// two-level prefix "work/api", so 3 levels are required.
+		sessions := []Session{
+			{ID: "s1", CWD: "/src/work/api"},
+			{ID: "s2", CWD: "/lib/work/api"},
+		}
+		projects := GroupByProject(sessions)
+		if len(projects) != 2 {
+			t.Fatalf("len(projects) = %d, want 2", len(projects))
+		}
+		names := map[string]bool{}
+		for _, p := range projects {
+			names[p.Name] = true
+		}
+		if !names["src/work/api"] {
+			t.Errorf("expected name %q; got names: %v", "src/work/api", names)
+		}
+		if !names["lib/work/api"] {
+			t.Errorf("expected name %q; got names: %v", "lib/work/api", names)
+		}
+	})
+
+	t.Run("two levels sufficient", func(t *testing.T) {
+		// /alice/repo and /bob/repo share basename "repo"; parent differs.
+		sessions := []Session{
+			{ID: "s1", CWD: "/alice/repo"},
+			{ID: "s2", CWD: "/bob/repo"},
+		}
+		projects := GroupByProject(sessions)
+		if len(projects) != 2 {
+			t.Fatalf("len(projects) = %d, want 2", len(projects))
+		}
+		names := map[string]bool{}
+		for _, p := range projects {
+			names[p.Name] = true
+		}
+		if !names["alice/repo"] {
+			t.Errorf("expected name %q; got names: %v", "alice/repo", names)
+		}
+		if !names["bob/repo"] {
+			t.Errorf("expected name %q; got names: %v", "bob/repo", names)
+		}
+	})
+
+	t.Run("unique basenames not expanded", func(t *testing.T) {
+		sessions := []Session{
+			{ID: "s1", CWD: "/home/user/frontend"},
+			{ID: "s2", CWD: "/home/user/backend"},
+		}
+		projects := GroupByProject(sessions)
+		if len(projects) != 2 {
+			t.Fatalf("len(projects) = %d, want 2", len(projects))
+		}
+		names := map[string]bool{}
+		for _, p := range projects {
+			names[p.Name] = true
+		}
+		if !names["frontend"] || !names["backend"] {
+			t.Errorf("unexpected names: %v", names)
+		}
+	})
+
+	t.Run("same CWD multiple sessions single project", func(t *testing.T) {
+		sessions := []Session{
+			{ID: "s1", CWD: "/work/api"},
+			{ID: "s2", CWD: "/work/api"},
+			{ID: "s3", CWD: "/work/api"},
+		}
+		projects := GroupByProject(sessions)
+		if len(projects) != 1 {
+			t.Fatalf("len(projects) = %d, want 1", len(projects))
+		}
+		if projects[0].Name != "api" {
+			t.Errorf("Name = %q, want %q", projects[0].Name, "api")
+		}
+		if len(projects[0].Sessions) != 3 {
+			t.Errorf("sessions = %d, want 3", len(projects[0].Sessions))
+		}
+	})
+}

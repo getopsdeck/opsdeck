@@ -90,7 +90,10 @@ type Session struct {
 
 // Project groups sessions that share the same working directory.
 type Project struct {
-	// Name is the project identifier (basename of the shared CWD).
+	// Name is the project identifier. Normally the basename of the shared CWD
+	// (e.g. "QuantMind"). When multiple projects share the same basename,
+	// GroupByProject expands it to "parent/basename" (e.g. "work/api") to
+	// prevent identity collisions.
 	Name string
 
 	// Path is the full filesystem path to the project directory.

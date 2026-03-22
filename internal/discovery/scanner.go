@@ -97,29 +97,42 @@ func projectName(cwd string) string {
 }
 
 // GroupByProject groups a flat list of sessions into Project values, keyed by
-// ProjectName. The returned slice is sorted alphabetically by project name.
+// CWD. When multiple distinct CWDs share the same basename, their display names
+// are expanded to include up to 3 path components (e.g. "work/api" instead of
+// "api") until all names are unique.
+//
+// The returned slice is sorted alphabetically by project name.
 func GroupByProject(sessions []Session) []Project {
-	byName := make(map[string]*Project)
-
+	// First pass: group sessions by CWD so each unique working directory gets
+	// exactly one Project entry.
+	byCWD := make(map[string]*Project)
 	for _, s := range sessions {
-		name := s.ProjectName
-		if name == "" {
-			name = "(unknown)"
+		cwd := s.CWD
+		if cwd == "" {
+			cwd = "(unknown)"
 		}
-
-		p, ok := byName[name]
+		p, ok := byCWD[cwd]
 		if !ok {
 			p = &Project{
-				Name: name,
-				Path: s.CWD,
+				Path: cwd,
 			}
-			byName[name] = p
+			byCWD[cwd] = p
 		}
 		p.Sessions = append(p.Sessions, s)
 	}
 
-	projects := make([]Project, 0, len(byName))
-	for _, p := range byName {
+	// Collect the distinct CWDs so we can run disambiguation.
+	cwds := make([]string, 0, len(byCWD))
+	for cwd := range byCWD {
+		cwds = append(cwds, cwd)
+	}
+
+	const maxLevels = 3
+	names := disambiguateNames(cwds, maxLevels)
+
+	projects := make([]Project, 0, len(byCWD))
+	for cwd, p := range byCWD {
+		p.Name = names[cwd]
 		projects = append(projects, *p)
 	}
 
@@ -128,4 +141,49 @@ func GroupByProject(sessions []Session) []Project {
 	})
 
 	return projects
+}
+
+// disambiguateNames assigns a short display name to each CWD path. It begins
+// with the basename of each path and progressively includes more parent
+// components (up to maxLevels) for any CWDs that still share a name.
+func disambiguateNames(cwds []string, maxLevels int) map[string]string {
+	names := make(map[string]string, len(cwds))
+
+	nameAt := func(path string, n int) string {
+		if path == "" || path == "(unknown)" {
+			return "(unknown)"
+		}
+		parts := strings.Split(filepath.ToSlash(filepath.Clean(path)), "/")
+		if n >= len(parts) {
+			return strings.Join(parts, "/")
+		}
+		return strings.Join(parts[len(parts)-n:], "/")
+	}
+
+	depth := make(map[string]int, len(cwds))
+	for _, cwd := range cwds {
+		depth[cwd] = 1
+		names[cwd] = nameAt(cwd, 1)
+	}
+
+	for level := 1; level < maxLevels; level++ {
+		nameCount := make(map[string]int, len(cwds))
+		for _, cwd := range cwds {
+			nameCount[names[cwd]]++
+		}
+
+		anyExpanded := false
+		for _, cwd := range cwds {
+			if nameCount[names[cwd]] > 1 {
+				depth[cwd]++
+				names[cwd] = nameAt(cwd, depth[cwd])
+				anyExpanded = true
+			}
+		}
+		if !anyExpanded {
+			break
+		}
+	}
+
+	return names
 }
