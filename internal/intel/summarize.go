@@ -27,6 +27,7 @@ func SummarizeActivities(activities []Activity) []string {
 	var bashDescs []string
 	var gitDescs []string
 	var errorCount int
+	var toolCallCount int
 
 	for _, a := range activities {
 		switch a.Type {
@@ -41,7 +42,8 @@ func SummarizeActivities(activities []Activity) []string {
 		case ActivityError:
 			errorCount++
 		case ActivityToolCall:
-			// Omit tool calls entirely -- they are internal noise.
+			// Omit tool calls from summary -- they are internal noise.
+			toolCallCount++
 		}
 	}
 
@@ -76,6 +78,13 @@ func SummarizeActivities(activities []Activity) []string {
 		}
 	}
 
+	// Fallback: if the session had only tool calls (Grep/Glob/Agent) and nothing
+	// else generated a summary line, show a minimal activity label instead of
+	// returning nothing (which would render as "No activity").
+	if len(result) == 0 && toolCallCount > 0 {
+		result = append(result, fmt.Sprintf("Explored codebase (%d tool calls)", toolCallCount))
+	}
+
 	// Cap at 5.
 	if len(result) > 5 {
 		result = result[:5]
@@ -85,6 +94,7 @@ func SummarizeActivities(activities []Activity) []string {
 }
 
 // summarizeEdits condenses edit activities into a single line.
+// The count reflects unique files, not raw edit operations.
 func summarizeEdits(descs []string) string {
 	// Extract unique file names from descriptions like "Edited foo.go" / "Wrote bar.go".
 	seen := make(map[string]struct{})
@@ -103,12 +113,12 @@ func summarizeEdits(descs []string) string {
 		}
 	}
 
-	n := len(descs)
-	if len(unique) <= 3 {
+	n := len(unique)
+	if n <= 3 {
 		return fmt.Sprintf("Edited %d files (%s)", n, strings.Join(unique, ", "))
 	}
 	shown := strings.Join(unique[:2], ", ")
-	return fmt.Sprintf("Edited %d files (%s, +%d more)", n, shown, len(unique)-2)
+	return fmt.Sprintf("Edited %d files (%s, +%d more)", n, shown, n-2)
 }
 
 // summarizeBash condenses bash command activities into a single line.
@@ -133,7 +143,9 @@ func summarizeGit(descs []string) string {
 		if strings.Contains(dl, "push") {
 			hasPush = true
 		}
-		if strings.Contains(dl, "pr") || strings.Contains(dl, "pull request") {
+		// Use precise patterns to avoid false positives from words containing
+		// the substring "pr" (e.g. "sprint", "approve", "compress").
+		if strings.Contains(dl, "gh pr create") || strings.Contains(dl, "pull request") || strings.Contains(dl, "create pr") {
 			hasPR = true
 		}
 	}

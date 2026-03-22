@@ -19,16 +19,17 @@ func TestSummarizeActivities_GroupsEdits(t *testing.T) {
 
 	result := SummarizeActivities(activities)
 
-	// Should condense into something like "Edited 4 files (login.go, auth_test.go, middleware.go)"
+	// 4 edit activities but only 3 unique files (login.go appears twice).
+	// Should condense into "Edited 3 files (login.go, auth_test.go, middleware.go)".
 	found := false
 	for _, s := range result {
-		if strings.Contains(s, "4 files") || strings.Contains(s, "4 file") {
+		if strings.Contains(s, "3 files") || strings.Contains(s, "3 file") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected a grouped edit summary mentioning 4 files, got: %v", result)
+		t.Errorf("expected a grouped edit summary mentioning 3 unique files, got: %v", result)
 	}
 }
 
@@ -230,5 +231,91 @@ func TestSummarizeActivities_SingleCommand(t *testing.T) {
 	// Single command should show the description.
 	if !strings.Contains(result[0], "Run tests") {
 		t.Errorf("single command should include description, got: %s", result[0])
+	}
+}
+
+func TestSummarizeActivities_EditCountUsesUniqueFiles(t *testing.T) {
+	// Same file edited multiple times — count should reflect unique files, not raw edits.
+	activities := []Activity{
+		{Type: ActivityFileEdit, Description: "Edited foo.go"},
+		{Type: ActivityFileEdit, Description: "Edited foo.go"},
+		{Type: ActivityFileEdit, Description: "Edited foo.go"},
+		{Type: ActivityFileEdit, Description: "Edited bar.go"},
+	}
+
+	result := SummarizeActivities(activities)
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d: %v", len(result), result)
+	}
+	// 4 edits but only 2 unique files.
+	if !strings.Contains(result[0], "2 files") {
+		t.Errorf("edit count should use unique file count (2), got: %s", result[0])
+	}
+	if strings.Contains(result[0], "4 files") {
+		t.Errorf("edit count should NOT use raw edit count (4), got: %s", result[0])
+	}
+}
+
+func TestSummarizeGit_PRDetection(t *testing.T) {
+	tests := []struct {
+		name   string
+		descs  []string
+		wantPR bool
+	}{
+		{
+			name:   "gh pr create triggers PR detection",
+			descs:  []string{"gh pr create --title foo"},
+			wantPR: true,
+		},
+		{
+			name:   "pull request phrase triggers PR detection",
+			descs:  []string{"Created pull request"},
+			wantPR: true,
+		},
+		{
+			name:   "create pr phrase triggers PR detection",
+			descs:  []string{"Create PR #42"},
+			wantPR: true,
+		},
+		{
+			name:   "bare pr substring does NOT trigger PR detection",
+			descs:  []string{"sprint review"},
+			wantPR: false,
+		},
+		{
+			name:   "push command does NOT trigger PR detection",
+			descs:  []string{"git push --force"},
+			wantPR: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			summary := summarizeGit(tc.descs)
+			hasPR := strings.Contains(strings.ToLower(summary), "created pr") || strings.Contains(strings.ToLower(summary), "pull request")
+			if hasPR != tc.wantPR {
+				t.Errorf("summarizeGit(%v) = %q; wantPR=%v", tc.descs, summary, tc.wantPR)
+			}
+		})
+	}
+}
+
+func TestSummarizeActivities_ToolOnlySessionFallback(t *testing.T) {
+	// Sessions that only used tool calls (Grep/Glob/Agent) should not collapse
+	// to empty/no-activity — they should show a fallback message.
+	activities := []Activity{
+		{Type: ActivityToolCall, Description: "Used Grep"},
+		{Type: ActivityToolCall, Description: "Used Glob"},
+		{Type: ActivityToolCall, Description: "Used Agent"},
+	}
+
+	result := SummarizeActivities(activities)
+
+	if len(result) == 0 {
+		t.Fatal("tool-only session should not produce empty summary")
+	}
+	if !strings.Contains(result[0], "3") {
+		t.Errorf("fallback should mention tool call count (3), got: %s", result[0])
 	}
 }
