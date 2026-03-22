@@ -117,12 +117,16 @@ func (a *App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, a.keys.Up):
 		a.table.MoveUp()
-		a.updateDetail()
+		if a.dashboard.ShowDetail {
+			a.updateDetail()
+		}
 		a.syncDashboard()
 
 	case key.Matches(msg, a.keys.Down):
 		a.table.MoveDown()
-		a.updateDetail()
+		if a.dashboard.ShowDetail {
+			a.updateDetail()
+		}
 		a.syncDashboard()
 
 	case key.Matches(msg, a.keys.Enter):
@@ -290,15 +294,13 @@ func (a *App) updateDetail() {
 			// Last user request.
 			if summary.LastUserMsg != "" {
 				lines = append(lines, "")
-				msg := summary.LastUserMsg
-				if len(msg) > 100 {
-					msg = msg[:97] + "..."
-				}
 				lines = append(lines, a.styles.HelpDesc.Render("Last request:"))
-				lines = append(lines, "  "+msg)
+				lines = append(lines, "  "+truncateRunes(summary.LastUserMsg, 100))
 			}
 
 			a.dashboard.DetailBody = strings.Join(lines, "\n")
+			a.dashboard.DetailHeight = len(lines) + 1 // +1 for title
+			a.syncSizes()
 			return
 		}
 	}
@@ -309,6 +311,21 @@ func (a *App) updateDetail() {
 	lines = append(lines, "  "+sel.LastLine)
 
 	a.dashboard.DetailBody = strings.Join(lines, "\n")
+	a.dashboard.DetailHeight = len(lines) + 1
+	a.syncSizes()
+}
+
+// truncateRunes truncates a string to maxLen runes (not bytes), adding "..."
+// if truncated. This is Unicode-safe unlike byte slicing.
+func truncateRunes(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return strings.ReplaceAll(s, "\n", " ")
+	}
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return strings.ReplaceAll(string(runes[:maxLen-3]), "\n", " ") + "..."
 }
 
 // syncSizes propagates terminal dimensions to all sub-components.

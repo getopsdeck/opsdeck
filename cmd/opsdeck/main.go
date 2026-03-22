@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/getopsdeck/opsdeck/internal/intel"
@@ -16,6 +17,26 @@ var (
 	commit  = "none"
 	date    = "unknown"
 )
+
+func init() {
+	// When installed via `go install`, ldflags are not set.
+	// Fall back to build info embedded by the Go toolchain.
+	if version == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				version = info.Main.Version
+			}
+			for _, s := range info.Settings {
+				if s.Key == "vcs.revision" && len(s.Value) >= 7 {
+					commit = s.Value[:7]
+				}
+				if s.Key == "vcs.time" {
+					date = s.Value
+				}
+			}
+		}
+	}
+}
 
 func main() {
 	if len(os.Args) > 1 {

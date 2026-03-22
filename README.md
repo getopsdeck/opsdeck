@@ -41,7 +41,7 @@ Claude Code session on your machine.
 
 ```bash
 # Homebrew (macOS / Linux)
-brew install opsdeck/tap/opsdeck
+brew install getopsdeck/tap/opsdeck
 
 # Or with Go
 go install github.com/getopsdeck/opsdeck/cmd/opsdeck@latest
