@@ -347,6 +347,9 @@ func (s *Server) handleAPIBrief(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enrich with waiting sessions, git info, and cost estimate.
+	intel.EnrichBrief(&brief, projectsDir, sessionsDir, since)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(brief)
 }
