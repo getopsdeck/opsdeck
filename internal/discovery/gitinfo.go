@@ -34,6 +34,10 @@ type GitInfo struct {
 	// LastCommit is the short hash and subject of the most recent commit
 	// (e.g. "abc1234 Fix the thing"). Empty if there are no commits.
 	LastCommit string
+
+	// LatestTag is the most recent git tag (e.g. "v1.0.1").
+	// Empty if no tags exist.
+	LatestTag string
 }
 
 // GetGitInfo returns git metadata for the repository at cwd.
@@ -68,6 +72,11 @@ func GetGitInfo(cwd string) GitInfo {
 	// Last commit: short hash + subject.
 	if out, err := runGit(cwd, "log", "-1", "--format=%h %s"); err == nil {
 		info.LastCommit = strings.TrimSpace(out)
+	}
+
+	// Latest tag (e.g., "v1.0.1").
+	if out, err := runGit(cwd, "describe", "--tags", "--abbrev=0"); err == nil {
+		info.LatestTag = strings.TrimSpace(out)
 	}
 
 	// Ahead/behind: parse rev-list --left-right --count HEAD...@{upstream}.

@@ -36,6 +36,7 @@ type ProjectBrief struct {
 	OneLine         string           // one-line activity summary
 	Branch          string           // git branch name
 	IsDirty         bool             // git working tree has changes
+	LatestTag       string           // latest git tag (e.g. "v1.0.1")
 	LastActive      time.Time        // most recent activity across all sessions
 }
 
@@ -178,6 +179,7 @@ func EnrichBrief(brief *DailyBrief, projectsDir, sessionsDir string, since time.
 			gi := discovery.GetGitInfo(pb.Path)
 			pb.Branch = gi.Branch
 			pb.IsDirty = gi.IsDirty
+			pb.LatestTag = gi.LatestTag
 		}
 
 		// Detect waiting sessions and track last activity.
@@ -497,6 +499,9 @@ func FormatDailyBrief(brief DailyBrief) string {
 			branchStr := p.Branch
 			if p.IsDirty {
 				branchStr += "*"
+			}
+			if p.LatestTag != "" {
+				branchStr += " " + p.LatestTag
 			}
 			branchInfo = fmt.Sprintf(" [%s]", branchStr)
 		}
