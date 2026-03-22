@@ -447,6 +447,7 @@ function selectSession(id) {
         s.last_request ? '<b>Last request:</b> ' + escapeHtml(s.last_request) : '';
 
       panel.classList.add('open');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
       // Fetch and render timeline.
       loadTimeline(id);
