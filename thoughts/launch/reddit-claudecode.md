@@ -1,7 +1,6 @@
 # Reddit r/ClaudeCode Post
 
-**Title:** I built a dashboard to manage multiple Claude Code sessions — free,
-open source, read-only
+**Title:** I built a "Chief of Staff" for Claude Code — monitors all your sessions, sends you a daily brief, tracks costs, and alerts when sessions need you
 
 ---
 
@@ -19,13 +18,16 @@ fix it.
 
 - Scans all your Claude Code sessions automatically — no setup required
 - Shows each session's state in real time: **BUSY**, **WAITING**, **IDLE**, or **DEAD**
-- Groups sessions by project so you can see everything for a given repo at a glance
-- Updates every 3 seconds; vi-style keyboard navigation (j/k, /, 1-4 for state filters)
+- Groups sessions by project so you can see everything at a glance
+- Shows git branch and dirty state per session
 - `opsdeck brief` — plaintext daily summary across all projects
 - `opsdeck metrics` — today vs yesterday productivity comparison with a Momentum score
-- `opsdeck costs` — token usage and estimated spend per session ($X.XX today)
-- `opsdeck web` — browser dashboard with live updates, search, clickable filters, session timeline, and cost tracking
+- `opsdeck costs` — token usage and estimated spend (integrates with ccusage)
+- `opsdeck web` — browser dashboard with live SSE updates, search, filters, session timeline, and cost tracking
 - `opsdeck ai-brief` — AI-powered morning summary via claude -p (opt-in)
+- `opsdeck watch` — monitors sessions and sends macOS desktop notifications when one needs you
+- `opsdeck resume <id>` — jump back into any session (supports prefix matching)
+- `opsdeck list` — compact overview of all sessions
 
 ---
 
@@ -49,9 +51,7 @@ Then just run `opsdeck`. That's it.
 
 ---
 
-Single Go binary, MIT license, works on macOS and Linux. Also has `opsdeck web`
-for a browser-based dashboard with live SSE updates. Cost analytics (token
-spend per session) coming next. Would love to know what features the community
-would find most useful.
+Single Go binary, MIT license, works on macOS and Linux. 10K+ lines, 12
+commands. Would love to know what features the community would find most useful.
 
 GitHub: https://github.com/getopsdeck/opsdeck
