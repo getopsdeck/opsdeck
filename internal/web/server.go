@@ -16,6 +16,7 @@ import (
 
 	"github.com/getopsdeck/opsdeck/internal/discovery"
 	"github.com/getopsdeck/opsdeck/internal/intel"
+	"github.com/getopsdeck/opsdeck/internal/monitor"
 )
 
 // SessionView is the JSON-friendly representation of a session for the web UI.
@@ -117,6 +118,9 @@ func (s *Server) Start() error {
 }
 
 // refresh re-discovers all sessions and updates the snapshot.
+// It uses monitor.Snapshot for core enrichment (session-index, transcript,
+// git branch/dirty) and then layers on web-specific extras (extended git
+// info, cached transcript summaries, cost data).
 func (s *Server) refresh() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -126,42 +130,24 @@ func (s *Server) refresh() {
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
 
-	raw, err := discovery.ScanSessions(sessionsDir)
-	if err != nil {
-		return
-	}
+	// Core enrichment via the shared monitor layer.
+	enriched := monitor.Snapshot(sessionsDir, projectsDir)
 
 	var views []SessionView
-	for _, rs := range raw {
-		alive := discovery.CheckSession(rs.PID, rs.StartedAt)
-		transcriptPath := discovery.FindTranscriptPath(projectsDir, rs.CWD, rs.ID)
-
-		var lastActivity = rs.StartedAt
-		if transcriptPath != "" {
-			if t, err := discovery.ReadLastActivity(transcriptPath); err == nil && !t.IsZero() {
-				lastActivity = t
-			}
-		}
-
-		state := discovery.ClassifyState(alive, lastActivity)
-
-		workingOn := rs.Summary
-		if workingOn == "" && rs.MessageCount > 0 {
-			workingOn = fmt.Sprintf("%d messages", rs.MessageCount)
-		}
-
+	for _, ms := range enriched {
 		view := SessionView{
-			ID:        rs.ID,
-			PID:       rs.PID,
-			CWD:       rs.CWD,
-			State:     string(state),
-			Project:   rs.ProjectName,
-			StartedAt: rs.StartedAt,
-			WorkingOn: workingOn,
+			ID:        ms.ID,
+			PID:       ms.PID,
+			CWD:       ms.CWD,
+			State:     ms.State,
+			Project:   ms.Project,
+			StartedAt: ms.StartedAt,
+			WorkingOn: ms.WorkingOn,
+			Messages:  ms.MessageCount,
 		}
 
-		// Git info for the session's working directory.
-		gi := discovery.GetGitInfo(rs.CWD)
+		// Extended git info (ahead/behind/last-commit) for the web detail view.
+		gi := discovery.GetGitInfo(ms.CWD)
 		view.GitBranch = gi.Branch
 		view.GitDirty = gi.IsDirty
 		view.GitAhead = gi.Ahead
@@ -169,8 +155,8 @@ func (s *Server) refresh() {
 		view.GitLastCommit = gi.LastCommit
 
 		// Use cached transcript summary to avoid re-parsing unchanged files.
-		if transcriptPath != "" {
-			summary, cost := s.cachedExtract(transcriptPath)
+		if ms.TranscriptPath != "" {
+			summary, cost := s.cachedExtract(ms.TranscriptPath)
 			if summary.TotalMessages > 0 {
 				view.EditCount = summary.EditCount
 				view.BashCount = summary.BashCount
@@ -187,6 +173,8 @@ func (s *Server) refresh() {
 		views = append(views, view)
 	}
 
+	// GroupByProject still needs raw discovery.Sessions for its logic.
+	raw, _ := discovery.ScanSessions(sessionsDir)
 	projects := discovery.GroupByProject(raw)
 
 	s.snapshot.mu.Lock()
