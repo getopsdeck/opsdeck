@@ -68,6 +68,9 @@ func main() {
 		case "watch":
 			runWatch()
 			return
+		case "status":
+			runStatus()
+			return
 		case "list", "ls":
 			runList()
 			return
@@ -123,6 +126,7 @@ Commands:
   (default)    Real-time TUI dashboard
   brief        Daily briefing across all projects
   metrics      Today vs yesterday productivity comparison
+  status       One-line summary (for shell prompts / tmux status bars)
   list         Compact list of all sessions with state and branch
   costs        Token usage and estimated spend per session
   ai-brief     AI-powered morning brief via claude -p (costs tokens)
@@ -252,6 +256,61 @@ func notifyMac(title, message string) {
 	exec.Command("osascript", "-e",
 		fmt.Sprintf(`display notification "%s" with title "%s"`, message, title),
 	).Run()
+}
+
+// runStatus prints a one-line summary suitable for shell prompts or status bars.
+func runStatus() {
+	home, _ := os.UserHomeDir()
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	projectsDir := filepath.Join(home, ".claude", "projects")
+
+	sessions, _ := discovery.ScanSessions(sessionsDir)
+	busy, waiting, idle := 0, 0, 0
+	var topWait string
+	var topWaitDur time.Duration
+
+	for _, s := range sessions {
+		alive := discovery.CheckSession(s.PID, s.StartedAt)
+		tp := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
+		la := s.StartedAt
+		if tp != "" {
+			if t, err := discovery.ReadLastActivity(tp); err == nil && !t.IsZero() {
+				la = t
+			}
+		}
+		state := discovery.ClassifyState(alive, la)
+		switch state {
+		case discovery.StateBusy:
+			busy++
+		case discovery.StateWaiting:
+			waiting++
+			d := time.Since(la)
+			if d > topWaitDur {
+				topWaitDur = d
+				topWait = s.ProjectName
+			}
+		case discovery.StateIdle:
+			idle++
+		}
+	}
+
+	parts := []string{fmt.Sprintf("● %d busy", busy)}
+	if waiting > 0 {
+		parts = append(parts, fmt.Sprintf("◐ %d waiting", waiting))
+	}
+	parts = append(parts, fmt.Sprintf("○ %d idle", idle))
+
+	line := strings.Join(parts, " | ")
+
+	if topWait != "" {
+		if topWaitDur.Hours() >= 24 {
+			line += fmt.Sprintf(" | %s waiting %.0fd", topWait, topWaitDur.Hours()/24)
+		} else {
+			line += fmt.Sprintf(" | %s waiting %.0fh", topWait, topWaitDur.Hours())
+		}
+	}
+
+	fmt.Println(line)
 }
 
 // isTTY reports whether stdout is connected to a terminal.
