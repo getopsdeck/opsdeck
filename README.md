@@ -74,7 +74,10 @@ opsdeck brief --since 48h   # last 2 days
 # Productivity metrics — today vs yesterday comparison
 opsdeck metrics
 
-# Cost analytics — token usage and estimated spend per session
+# List all sessions — compact overview
+opsdeck list               # or: opsdeck ls
+
+# Cost analytics — token usage and estimated spend (via ccusage)
 opsdeck costs
 opsdeck costs --since 2h   # last 2 hours only
 
