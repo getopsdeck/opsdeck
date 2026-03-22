@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 
@@ -349,16 +350,11 @@ func runList() {
 
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
-	sessions, err := discovery.ScanSessions(sessionsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 
-	projects := discovery.GroupByProject(sessions)
+	// Use monitor.Snapshot for enriched data (same as web/TUI).
+	enriched := monitor.Snapshot(sessionsDir, projectsDir)
 
 	if jsonOutput {
-		enriched := monitor.Snapshot(sessionsDir, projectsDir)
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		enc.Encode(enriched)
@@ -373,85 +369,88 @@ func runList() {
 		}
 	}
 
+	// Sort: busy first, then waiting, then idle, then dead.
+	statePriority := map[string]int{"busy": 0, "waiting": 1, "idle": 2, "dead": 3}
+	sort.Slice(enriched, func(i, j int) bool {
+		pi := statePriority[enriched[i].State]
+		pj := statePriority[enriched[j].State]
+		if pi != pj {
+			return pi < pj
+		}
+		return enriched[i].Project < enriched[j].Project
+	})
+
 	fmt.Printf("%-14s %-12s %-8s %-18s %s\n", "SESSION", "PROJECT", "STATE", "BRANCH", "STARTED")
 	fmt.Println(strings.Repeat("-", 72))
 
-	for _, p := range projects {
-		for _, s := range p.Sessions {
-			alive := discovery.CheckSession(s.PID, s.StartedAt)
-			transcriptPath := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
-			var lastActivity = s.StartedAt
-			if transcriptPath != "" {
-				if t, err := discovery.ReadLastActivity(transcriptPath); err == nil && !t.IsZero() {
-					lastActivity = t
-				}
-			}
-			state := discovery.ClassifyState(alive, lastActivity)
-
-			gi := discovery.GetGitInfo(s.CWD)
-			branch := gi.Branch
-			if gi.IsDirty && branch != "" {
-				branch += "*"
-			}
-			if branch == "" {
-				branch = "-"
-			}
-
-			// Skip non-active sessions in --active mode.
-			if activeOnly && state != discovery.StateBusy && state != discovery.StateWaiting {
-				continue
-			}
-
-			id := s.ID
-			if len(id) > 12 {
-				id = id[:12]
-			}
-
-			icon := "○"
-			color := ""
-			reset := ""
-			if useColor {
-				color = "\033[0m"
-				reset = "\033[0m"
-				switch state {
-				case discovery.StateBusy:
-					color = "\033[32m"
-				case discovery.StateWaiting:
-					color = "\033[33m"
-				case discovery.StateIdle:
-					color = "\033[90m"
-				case discovery.StateDead:
-					color = "\033[31m"
-				}
-			}
-			switch state {
-			case discovery.StateBusy:
-				icon = "●"
-			case discovery.StateWaiting:
-				icon = "◐"
-			case discovery.StateDead:
-				icon = "✕"
-			}
-
-			// For WAITING sessions, show how long they've been waiting.
-			extra := s.StartedAt.Format("Jan 02 15:04")
-			if state == discovery.StateWaiting {
-				waitDur := time.Since(lastActivity)
-				if waitDur.Hours() >= 24 {
-					extra = fmt.Sprintf("waiting %.0fd", waitDur.Hours()/24)
-				} else if waitDur.Hours() >= 1 {
-					extra = fmt.Sprintf("waiting %.0fh", waitDur.Hours())
-				} else {
-					extra = fmt.Sprintf("waiting %.0fm", waitDur.Minutes())
-				}
-			}
-
-			fmt.Printf("%s%s %-12s %-12s %-8s %-18s %s%s\n",
-				color, icon, id, p.Name, string(state), branch, extra, reset)
+	displayed := 0
+	for _, s := range enriched {
+		if activeOnly && s.State != "busy" && s.State != "waiting" {
+			continue
 		}
+
+		id := s.ID
+		if len(id) > 12 {
+			id = id[:12]
+		}
+
+		branch := s.GitBranch
+		if s.GitDirty && branch != "" {
+			branch += "*"
+		}
+		if branch == "" {
+			branch = "-"
+		}
+
+		icon := "○"
+		color := ""
+		reset := ""
+		if useColor {
+			reset = "\033[0m"
+			switch s.State {
+			case "busy":
+				color = "\033[32m"
+			case "waiting":
+				color = "\033[33m"
+			case "idle":
+				color = "\033[90m"
+			case "dead":
+				color = "\033[31m"
+			}
+		}
+		switch s.State {
+		case "busy":
+			icon = "●"
+		case "waiting":
+			icon = "◐"
+		case "dead":
+			icon = "✕"
+		}
+
+		extra := s.StartedAt.Format("Jan 02 15:04")
+		if s.State == "waiting" {
+			// Show how long waiting. LastLine has the timestamp context.
+			// Use TranscriptPath to get last activity.
+			if s.TranscriptPath != "" {
+				if la, err := discovery.ReadLastActivity(s.TranscriptPath); err == nil && !la.IsZero() {
+					waitDur := time.Since(la)
+					if waitDur.Hours() >= 24 {
+						extra = fmt.Sprintf("waiting %.0fd", waitDur.Hours()/24)
+					} else if waitDur.Minutes() >= 60 {
+						extra = fmt.Sprintf("waiting %.0fh", waitDur.Hours())
+					} else {
+						extra = fmt.Sprintf("waiting %.0fm", waitDur.Minutes())
+					}
+				}
+			}
+		}
+
+		fmt.Printf("%s%s %-12s %-12s %-8s %-18s %s%s\n",
+			color, icon, id, s.Project, s.State, branch, extra, reset)
+		displayed++
 	}
 
-	fmt.Printf("\n%d sessions across %d projects\n", len(sessions), len(projects))
+	fmt.Printf("\n%d sessions (%d shown)\n", len(enriched), displayed)
 }
 
 // runResume opens a Claude Code session by ID. It finds the session's working
