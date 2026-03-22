@@ -417,7 +417,7 @@ func FormatDailyBrief(brief DailyBrief) string {
 			line := fmt.Sprintf("  ! %s (%s) -- waiting %s", p.Name, id, waitDur)
 			if ws.LastUserMsg != "" {
 				msg := truncate(ws.LastUserMsg, 40)
-				line += " -- doing: " + msg
+				line += " -- last: " + msg
 			}
 			waitEntries = append(waitEntries, waitEntry{line: line, dur: dur, sessionID: ws.SessionID})
 		}
