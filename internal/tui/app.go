@@ -226,6 +226,8 @@ func (a *App) applyFilters() {
 			WorkingOn:      s.WorkingOn,
 			LastLine:       s.LastLine,
 			TranscriptPath: s.TranscriptPath,
+			GitBranch:      s.GitBranch,
+			GitDirty:       s.GitDirty,
 		}
 	}
 	a.table.SetSessions(tableSessions)

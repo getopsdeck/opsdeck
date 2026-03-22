@@ -96,6 +96,9 @@ func DiscoverSessions() []Session {
 			workingOn = fmt.Sprintf("%d messages", msgCount)
 		}
 
+		// Fetch git metadata for the session's working directory.
+		gitInfo := discovery.GetGitInfo(rs.CWD)
+
 		// Convert to TUI Session.
 		sessions = append(sessions, Session{
 			ID:             rs.ID,
@@ -106,6 +109,8 @@ func DiscoverSessions() []Session {
 			WorkingOn:      workingOn,
 			LastLine:       lastLine,
 			TranscriptPath: transcriptPath,
+			GitBranch:      gitInfo.Branch,
+			GitDirty:       gitInfo.IsDirty,
 		})
 	}
 

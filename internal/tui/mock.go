@@ -15,6 +15,8 @@ type Session struct {
 	WorkingOn      string
 	LastLine       string // last line of transcript (preview)
 	TranscriptPath string // path to transcript JSONL for detail panel
+	GitBranch      string // current git branch (empty if not a repo)
+	GitDirty       bool   // true if working tree has uncommitted changes
 }
 
 // mockSessions returns hardcoded sessions for testing the TUI layout.

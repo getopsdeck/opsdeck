@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/getopsdeck/opsdeck/internal/discovery"
 	"github.com/getopsdeck/opsdeck/internal/intel"
 	"github.com/getopsdeck/opsdeck/internal/tui"
 	"github.com/getopsdeck/opsdeck/internal/web"
@@ -60,6 +63,9 @@ func main() {
 		case "ai-brief":
 			intel.RunAIBrief()
 			return
+		case "resume":
+			runResume()
+			return
 		case "web", "serve":
 			addr := "localhost:7070"
 			if len(os.Args) > 2 {
@@ -92,6 +98,7 @@ Commands:
   metrics      Today vs yesterday productivity comparison
   costs        Token usage and estimated spend per session
   ai-brief     AI-powered morning brief via claude -p (costs tokens)
+  resume <id>  Resume a Claude Code session (supports prefix match)
   web [addr]   Web dashboard at addr (default: localhost:7070)
   version      Show version information
   help         Show this help message
@@ -105,6 +112,66 @@ read-only — it never modifies your sessions or sends data anywhere.
 
 GitHub: https://github.com/getopsdeck/opsdeck
 `, version)
+}
+
+// runResume opens a Claude Code session by ID. It finds the session's working
+// directory and launches `claude --resume <id>` there.
+func runResume() {
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "Usage: opsdeck resume <session-id>")
+		fmt.Fprintln(os.Stderr, "  Tip: use opsdeck brief or opsdeck web to find session IDs")
+		os.Exit(1)
+	}
+
+	sessionID := os.Args[2]
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	sessions, err := discovery.ScanSessions(sessionsDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error scanning sessions: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Find matching session (supports prefix match).
+	var match *discovery.Session
+	for i := range sessions {
+		if sessions[i].ID == sessionID || strings.HasPrefix(sessions[i].ID, sessionID) {
+			if match != nil {
+				fmt.Fprintf(os.Stderr, "Error: ambiguous session ID prefix %q — matches multiple sessions\n", sessionID)
+				os.Exit(1)
+			}
+			match = &sessions[i]
+		}
+	}
+
+	if match == nil {
+		fmt.Fprintf(os.Stderr, "Error: session %q not found\n", sessionID)
+		os.Exit(1)
+	}
+
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: 'claude' CLI not found in PATH")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Resuming session %s in %s\n", match.ID, match.CWD)
+
+	cmd := exec.Command(claudePath, "--resume", match.ID)
+	cmd.Dir = match.CWD
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // runBrief handles the "opsdeck brief" subcommand. It generates a daily brief

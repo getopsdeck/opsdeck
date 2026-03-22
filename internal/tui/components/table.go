@@ -18,6 +18,8 @@ type TableSession struct {
 	WorkingOn      string
 	LastLine       string
 	TranscriptPath string
+	GitBranch      string // current git branch (empty if not a repo)
+	GitDirty       bool   // true if working tree has uncommitted changes
 }
 
 // TableModel is the Bubble Tea model for the session table.
@@ -274,10 +276,27 @@ func (m TableModel) renderRow(idx int) string {
 		sid = sid[:16]
 	}
 
+	// Branch prefix: "[main*] " style, max 15 chars for the branch name.
+	branchPrefix := ""
+	if s.GitBranch != "" {
+		b := s.GitBranch
+		if len(b) > 15 {
+			b = b[:15]
+		}
+		if s.GitDirty {
+			b += "*"
+		}
+		branchPrefix = "[" + b + "] "
+	}
+
 	// Working on (truncated to fit).
-	workingOn := s.WorkingOn
-	if workingOn == "" {
-		workingOn = m.styles.Subtle.Render("--")
+	workingOn := branchPrefix + s.WorkingOn
+	if s.WorkingOn == "" {
+		if branchPrefix != "" {
+			workingOn = m.styles.Subtle.Render(branchPrefix + "--")
+		} else {
+			workingOn = m.styles.Subtle.Render("--")
+		}
 	}
 
 	// Build the row columns with fixed widths.
