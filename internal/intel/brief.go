@@ -204,11 +204,17 @@ func EnrichBrief(brief *DailyBrief, projectsDir, sessionsDir string, since time.
 				state := discovery.ClassifyState(alive, lastActivity)
 
 				if state == discovery.StateWaiting || state == discovery.StateIdle {
-					// Read transcript to get the last user message.
+					// Read transcript to get what the AI was last doing.
 					summary, err := ExtractRecent(transcriptPath, time.Time{})
 					lastMsg := ""
-					if err == nil && summary.LastUserMsg != "" {
-						lastMsg = truncate(summary.LastUserMsg, 40)
+					if err == nil {
+						// Prefer assistant's last message (what it was doing).
+						// Fall back to user's last message if no assistant output.
+						if summary.LastAssistMsg != "" {
+							lastMsg = truncate(summary.LastAssistMsg, 40)
+						} else if summary.LastUserMsg != "" {
+							lastMsg = truncate(summary.LastUserMsg, 40)
+						}
 					}
 
 					ws := WaitingSession{
@@ -395,7 +401,7 @@ func FormatDailyBrief(brief DailyBrief) string {
 			line := fmt.Sprintf("  ! %s (%s) -- waiting %s", p.Name, id, waitDur)
 			if ws.LastUserMsg != "" {
 				msg := truncate(ws.LastUserMsg, 40)
-				line += fmt.Sprintf(" -- last: %q", msg)
+				line += fmt.Sprintf(" -- doing: %q", msg)
 			}
 			waitEntries = append(waitEntries, waitEntry{line: line, dur: dur})
 		}

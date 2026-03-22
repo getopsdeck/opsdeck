@@ -104,10 +104,10 @@ func ComputeDayMetrics(projectsDir, sessionsDir string, day time.Time) DayMetric
 		// Also count sessions with reads-only as active.
 		hasActivity := dayActivities > 0 || summary.ReadCount > 0
 
-		// Count files only from activities within the day window (not all files in summary).
+		// Count files from the session's FilesChanged list.
 		if hasActivity {
 			activeSessions++
-			for f := range dayFiles {
+			for _, f := range summary.FilesChanged {
 				allFiles[f] = true
 			}
 

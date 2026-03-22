@@ -270,14 +270,21 @@ func runList() {
 			}
 
 			icon := "○"
+			color := "\033[0m" // reset
 			switch state {
 			case discovery.StateBusy:
 				icon = "●"
+				color = "\033[32m" // green
 			case discovery.StateWaiting:
 				icon = "◐"
+				color = "\033[33m" // yellow
+			case discovery.StateIdle:
+				color = "\033[90m" // gray
 			case discovery.StateDead:
 				icon = "✕"
+				color = "\033[31m" // red
 			}
+			reset := "\033[0m"
 
 			// For WAITING sessions, show how long they've been waiting.
 			extra := s.StartedAt.Format("Jan 02 15:04")
@@ -292,8 +299,8 @@ func runList() {
 				}
 			}
 
-			fmt.Printf("%s %-12s %-12s %-8s %-18s %s\n",
-				icon, id, p.Name, string(state), branch, extra)
+			fmt.Printf("%s%s %-12s %-12s %-8s %-18s %s%s\n",
+				color, icon, id, p.Name, string(state), branch, extra, reset)
 		}
 	}
 
