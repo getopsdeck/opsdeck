@@ -425,3 +425,50 @@ func TestOffsetClampsOnSetSessions(t *testing.T) {
 			tbl.Cursor, len(tbl.Sessions))
 	}
 }
+
+func TestGroupedViewClipsToViewport(t *testing.T) {
+	// 6 sessions: 3 in ProjA (indices 0,1,2) and 3 in ProjB (indices 3,4,5).
+	now := time.Now()
+	sessions := []TableSession{
+		{ID: "s0", PID: 3000, State: "busy", Project: "ProjA", StartedAt: now, WorkingOn: "t0"},
+		{ID: "s1", PID: 3001, State: "busy", Project: "ProjA", StartedAt: now, WorkingOn: "t1"},
+		{ID: "s2", PID: 3002, State: "busy", Project: "ProjA", StartedAt: now, WorkingOn: "t2"},
+		{ID: "s3", PID: 3003, State: "busy", Project: "ProjB", StartedAt: now, WorkingOn: "t3"},
+		{ID: "s4", PID: 3004, State: "busy", Project: "ProjB", StartedAt: now, WorkingOn: "t4"},
+		{ID: "s5", PID: 3005, State: "busy", Project: "ProjB", StartedAt: now, WorkingOn: "t5"},
+	}
+
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(sessions)
+	tbl.SetSize(100, 3) // viewport [0,3): only ProjA sessions visible
+	tbl.ProjectView = true
+
+	view := tbl.View()
+
+	if !strings.Contains(view, "ProjA") {
+		t.Error("ProjA should be visible (its sessions are in the viewport)")
+	}
+	if strings.Contains(view, "ProjB") {
+		t.Error("ProjB should be clipped: all its sessions are outside the viewport")
+	}
+}
+
+func TestOffsetClampsOnSetSize(t *testing.T) {
+	tbl := NewTable(stateIconStub)
+	tbl.SetSessions(makeManySessions(10))
+	tbl.SetSize(100, 3)
+
+	// Scroll to bottom: cursor=9, offset=7 (window: rows 7,8,9).
+	for i := 0; i < 9; i++ {
+		tbl.MoveDown()
+	}
+	if tbl.Offset != 7 {
+		t.Fatalf("expected Offset=7 after scrolling to bottom, got %d", tbl.Offset)
+	}
+
+	// Grow viewport; maxOffset = 10-8 = 2, so offset must be clamped.
+	tbl.SetSize(100, 8)
+	if tbl.Offset > 2 {
+		t.Errorf("SetSize should re-clamp Offset to <= 2, got %d", tbl.Offset)
+	}
+}

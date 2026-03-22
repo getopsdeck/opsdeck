@@ -77,10 +77,11 @@ func NewTable(stateIconFn func(string) string) TableModel {
 	}
 }
 
-// SetSize updates the table dimensions.
+// SetSize updates the table dimensions and re-clamps the scroll offset.
 func (m *TableModel) SetSize(width, height int) {
 	m.Width = width
 	m.Height = height
+	m.clampOffset()
 }
 
 // SetSessions replaces the session list and clamps cursor/offset.
@@ -153,7 +154,7 @@ func (m TableModel) View() string {
 	return b.String()
 }
 
-// renderGrouped renders sessions grouped by project.
+// renderGrouped renders sessions grouped by project, clipped to the viewport.
 func (m TableModel) renderGrouped(b *strings.Builder) {
 	// Determine project order and grouping.
 	type group struct {
@@ -174,15 +175,29 @@ func (m TableModel) renderGrouped(b *strings.Builder) {
 		groups[idx].sessions = append(groups[idx].sessions, i)
 	}
 
+	start, end := m.visibleRange()
+
 	for _, g := range groups {
-		// Project header.
+		// Collect only the sessions in this group that fall within the viewport.
+		var visible []int
+		for _, idx := range g.sessions {
+			if idx >= start && idx < end {
+				visible = append(visible, idx)
+			}
+		}
+		// Skip groups with no visible sessions.
+		if len(visible) == 0 {
+			continue
+		}
+
+		// Project header (show total group count, not just visible rows).
 		header := m.styles.ProjectHeader.Render(
 			"\u2501\u2501 " + g.name + " (" + itoa(len(g.sessions)) + ")")
 		b.WriteString(header)
 		b.WriteString("\n")
 
-		// Rows.
-		for _, idx := range g.sessions {
+		// Visible rows only.
+		for _, idx := range visible {
 			b.WriteString(m.renderRow(idx))
 			b.WriteString("\n")
 		}
