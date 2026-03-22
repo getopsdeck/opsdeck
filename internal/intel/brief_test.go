@@ -312,15 +312,15 @@ func TestGenerateBrief_AggregatesEdits(t *testing.T) {
 	}
 }
 
-// --- FormatBrief tests ---
+// --- FormatDailyBriefVerbose tests (old format, renamed) ---
 
-func TestFormatBrief_Empty(t *testing.T) {
+func TestFormatBriefVerbose_Empty(t *testing.T) {
 	brief := DailyBrief{
 		GeneratedAt: time.Date(2026, 3, 21, 9, 0, 0, 0, time.Local),
 		Period:      "Last 24 hours",
 	}
 
-	output := FormatDailyBrief(brief)
+	output := FormatDailyBriefVerbose(brief)
 	if !strings.Contains(output, "OpsDeck Daily Brief") {
 		t.Error("output should contain header")
 	}
@@ -329,7 +329,7 @@ func TestFormatBrief_Empty(t *testing.T) {
 	}
 }
 
-func TestFormatBrief_WithProjects(t *testing.T) {
+func TestFormatBriefVerbose_WithProjects(t *testing.T) {
 	brief := DailyBrief{
 		GeneratedAt:    time.Date(2026, 3, 21, 9, 0, 0, 0, time.Local),
 		Period:         "Last 24 hours",
@@ -360,7 +360,7 @@ func TestFormatBrief_WithProjects(t *testing.T) {
 		Highlights: []string{"5 sessions across 2 projects"},
 	}
 
-	output := FormatDailyBrief(brief)
+	output := FormatDailyBriefVerbose(brief)
 
 	if !strings.Contains(output, "QuantMind") {
 		t.Error("output should contain project name QuantMind")
@@ -382,14 +382,14 @@ func TestFormatBrief_WithProjects(t *testing.T) {
 	}
 }
 
-func TestFormatBrief_WithAttention(t *testing.T) {
+func TestFormatBriefVerbose_WithAttention(t *testing.T) {
 	brief := DailyBrief{
 		GeneratedAt: time.Date(2026, 3, 21, 9, 0, 0, 0, time.Local),
 		Period:      "Last 24 hours",
 		Attention:   []string{"Session PID 30898: idle for 58 hours"},
 	}
 
-	output := FormatDailyBrief(brief)
+	output := FormatDailyBriefVerbose(brief)
 	if !strings.Contains(output, "NEEDS ATTENTION") {
 		t.Error("output should contain NEEDS ATTENTION section")
 	}
@@ -398,28 +398,384 @@ func TestFormatBrief_WithAttention(t *testing.T) {
 	}
 }
 
-func TestFormatBrief_NoAttentionSection_WhenEmpty(t *testing.T) {
+func TestFormatBriefVerbose_NoAttentionSection_WhenEmpty(t *testing.T) {
 	brief := DailyBrief{
 		GeneratedAt: time.Date(2026, 3, 21, 9, 0, 0, 0, time.Local),
 		Period:      "Last 24 hours",
 	}
 
-	output := FormatDailyBrief(brief)
+	output := FormatDailyBriefVerbose(brief)
 	if strings.Contains(output, "NEEDS ATTENTION") {
 		t.Error("output should NOT contain NEEDS ATTENTION when no attention items")
 	}
 }
 
-func TestFormatBrief_Highlights(t *testing.T) {
+func TestFormatBriefVerbose_Highlights(t *testing.T) {
 	brief := DailyBrief{
 		GeneratedAt: time.Date(2026, 3, 21, 9, 0, 0, 0, time.Local),
 		Period:      "Last 24 hours",
 		Highlights:  []string{"All tests passing", "3 new features landed"},
 	}
 
-	output := FormatDailyBrief(brief)
+	output := FormatDailyBriefVerbose(brief)
 	if !strings.Contains(output, "All tests passing") {
 		t.Error("output should contain highlight")
+	}
+}
+
+// --- FormatDailyBrief (secretary format) tests ---
+
+func TestFormatDailyBrief_Header(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:   time.Date(2026, 3, 23, 9, 0, 0, 0, time.Local),
+		Period:        "Last 24 hours",
+		TotalSessions: 16,
+		Projects: []ProjectBrief{
+			{Name: "Alpha", ActiveCount: 1, TotalEdits: 5},
+			{Name: "Beta", ActiveCount: 0},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "OpsDeck Morning Brief") {
+		t.Error("header should say 'OpsDeck Morning Brief'")
+	}
+	// Should include day-of-week.
+	if !strings.Contains(output, "Monday") {
+		t.Errorf("header should contain day-of-week, got:\n%s", output)
+	}
+	// Should show project and session count.
+	if !strings.Contains(output, "2 projects") {
+		t.Errorf("header should contain project count, got:\n%s", output)
+	}
+	if !strings.Contains(output, "16 sessions") {
+		t.Errorf("header should contain session count, got:\n%s", output)
+	}
+}
+
+func TestFormatDailyBrief_WaitingSessions(t *testing.T) {
+	now := time.Now()
+	brief := DailyBrief{
+		GeneratedAt:   now,
+		TotalSessions: 2,
+		Projects: []ProjectBrief{
+			{
+				Name:       "QuantMind",
+				ActiveCount: 1,
+				TotalEdits: 10,
+				WaitingSessions: []WaitingSession{
+					{
+						SessionID:   "b901962b-1234-5678-9abc-def012345678",
+						WaitingSince: now.Add(-8 * 24 * time.Hour),
+						LastUserMsg: "let's go",
+					},
+				},
+			},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "NEEDS YOUR ATTENTION") {
+		t.Error("should contain NEEDS YOUR ATTENTION section")
+	}
+	if !strings.Contains(output, "QuantMind") {
+		t.Error("should contain project name in waiting section")
+	}
+	if !strings.Contains(output, "b901962b") {
+		t.Error("should contain truncated session ID")
+	}
+	if !strings.Contains(output, "8 days") {
+		t.Errorf("should contain wait duration '8 days', got:\n%s", output)
+	}
+	if !strings.Contains(output, "let's go") {
+		t.Error("should contain last user message")
+	}
+}
+
+func TestFormatDailyBrief_NoWaitingSessions(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:   time.Now(),
+		TotalSessions: 1,
+		Projects: []ProjectBrief{
+			{Name: "Alpha", ActiveCount: 1, TotalEdits: 5},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if strings.Contains(output, "NEEDS YOUR ATTENTION") {
+		t.Error("should NOT contain NEEDS YOUR ATTENTION when no waiting sessions")
+	}
+}
+
+func TestFormatDailyBrief_ProjectUpdates(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:   time.Now(),
+		TotalSessions: 3,
+		Projects: []ProjectBrief{
+			{
+				Name:       "OpsDeck",
+				ActiveCount: 1,
+				TotalEdits: 151,
+				OneLine:    "shipped v0.9.0",
+				Branch:     "main",
+				IsDirty:    true,
+				FilesChanged: make([]string, 35),
+			},
+			{
+				Name:       "FusionSQL",
+				ActiveCount: 1,
+				TotalEdits: 3,
+				OneLine:    "debugging session loss issue",
+				Branch:     "dev",
+				IsDirty:    true,
+			},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "PROJECT UPDATES") {
+		t.Error("should contain PROJECT UPDATES section")
+	}
+	if !strings.Contains(output, "OpsDeck") {
+		t.Error("should contain project name OpsDeck")
+	}
+	if !strings.Contains(output, "shipped v0.9.0") {
+		t.Error("should contain one-line summary")
+	}
+	if !strings.Contains(output, "151 edits") {
+		t.Error("should contain edit count in project line")
+	}
+	if !strings.Contains(output, "main*") {
+		t.Error("should show branch with dirty marker")
+	}
+	if !strings.Contains(output, "dev*") {
+		t.Error("should show branch with dirty marker for FusionSQL")
+	}
+}
+
+func TestFormatDailyBrief_IdleProjects(t *testing.T) {
+	now := time.Now()
+	brief := DailyBrief{
+		GeneratedAt:   now,
+		TotalSessions: 3,
+		Projects: []ProjectBrief{
+			{Name: "ActiveProject", ActiveCount: 1, TotalEdits: 5, OneLine: "working"},
+			{
+				Name:         "IdleProject",
+				SessionCount: 2,
+				ActiveCount:  0,
+				TotalEdits:   0,
+				LastActive:   now.Add(-3 * 24 * time.Hour),
+			},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "IDLE") {
+		t.Errorf("should contain IDLE section, got:\n%s", output)
+	}
+	if !strings.Contains(output, "IdleProject") {
+		t.Error("should contain idle project name")
+	}
+	if !strings.Contains(output, "3 days ago") {
+		t.Errorf("should contain last active time '3 days ago', got:\n%s", output)
+	}
+}
+
+func TestFormatDailyBrief_CostLine(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:   time.Now(),
+		TotalSessions: 1,
+		CostEstimate:  270.50,
+		Projects: []ProjectBrief{
+			{Name: "Alpha", ActiveCount: 1, TotalEdits: 5},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "SPEND") {
+		t.Errorf("should contain SPEND line, got:\n%s", output)
+	}
+	if !strings.Contains(output, "$271") && !strings.Contains(output, "$270") {
+		t.Errorf("should contain cost estimate near $270, got:\n%s", output)
+	}
+}
+
+func TestFormatDailyBrief_NoCostLine_WhenZero(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:   time.Now(),
+		TotalSessions: 1,
+		CostEstimate:  0,
+		Projects: []ProjectBrief{
+			{Name: "Alpha", ActiveCount: 1, TotalEdits: 5},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if strings.Contains(output, "SPEND") {
+		t.Error("should NOT contain SPEND line when cost is zero")
+	}
+}
+
+func TestFormatDailyBrief_Empty(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt: time.Now(),
+	}
+
+	output := FormatDailyBrief(brief)
+
+	if !strings.Contains(output, "No sessions found") {
+		t.Errorf("empty brief should say 'No sessions found', got:\n%s", output)
+	}
+}
+
+func TestFormatDailyBrief_NoRawCounts(t *testing.T) {
+	brief := DailyBrief{
+		GeneratedAt:    time.Now(),
+		TotalSessions:  5,
+		ActiveSessions: 3,
+		TotalEdits:     20,
+		TotalCommands:  8,
+		Projects: []ProjectBrief{
+			{Name: "Alpha", ActiveCount: 1, TotalEdits: 5, OneLine: "working"},
+		},
+	}
+
+	output := FormatDailyBrief(brief)
+
+	// The old format had lines like "You worked across N projects, made X edits, ran Y commands"
+	// and "N sessions had activity in period". The new format should not have these.
+	if strings.Contains(output, "ran 8 commands") {
+		t.Error("should NOT contain raw command count in new format")
+	}
+	if strings.Contains(output, "sessions had activity") {
+		t.Error("should NOT contain 'sessions had activity' noise")
+	}
+}
+
+// --- SummarizeOneLine tests ---
+
+func TestSummarizeOneLine_Empty(t *testing.T) {
+	result := SummarizeOneLine(nil)
+	if result != "" {
+		t.Errorf("SummarizeOneLine(nil) = %q, want empty", result)
+	}
+}
+
+func TestSummarizeOneLine_SingleGitOp(t *testing.T) {
+	activities := []Activity{
+		{Type: ActivityGitOp, Description: "Committed, pushed, created PR"},
+	}
+	result := SummarizeOneLine(activities)
+	if result == "" {
+		t.Error("should return non-empty for git op")
+	}
+}
+
+func TestSummarizeOneLine_EditsOnly(t *testing.T) {
+	activities := []Activity{
+		{Type: ActivityFileEdit, Description: "Edited main.go"},
+		{Type: ActivityFileEdit, Description: "Edited tui.go"},
+		{Type: ActivityFileEdit, Description: "Edited brief.go"},
+	}
+	result := SummarizeOneLine(activities)
+	if result == "" {
+		t.Error("should return non-empty for edits")
+	}
+	// Should be concise, not list every file.
+	if len(result) > 80 {
+		t.Errorf("one-line summary too long (%d chars): %q", len(result), result)
+	}
+}
+
+func TestSummarizeOneLine_MixedActivities(t *testing.T) {
+	activities := []Activity{
+		{Type: ActivityUserRequest, Description: "Fix the auth bug"},
+		{Type: ActivityFileEdit, Description: "Edited auth.go"},
+		{Type: ActivityBashCommand, Description: "Ran tests"},
+		{Type: ActivityGitOp, Description: "Git commit"},
+	}
+	result := SummarizeOneLine(activities)
+	if result == "" {
+		t.Error("should return non-empty for mixed activities")
+	}
+	// Should prioritize activity (git/edits) over user messages.
+	if !strings.Contains(strings.ToLower(result), "commit") {
+		t.Errorf("should describe activity (git/edits), got: %q", result)
+	}
+}
+
+// --- formatWaitDuration tests ---
+
+func TestFormatWaitDuration_Minutes(t *testing.T) {
+	result := formatWaitDuration(15 * time.Minute)
+	if result != "15 min" {
+		t.Errorf("formatWaitDuration(15m) = %q, want %q", result, "15 min")
+	}
+}
+
+func TestFormatWaitDuration_Hours(t *testing.T) {
+	result := formatWaitDuration(3 * time.Hour)
+	if result != "3 hours" {
+		t.Errorf("formatWaitDuration(3h) = %q, want %q", result, "3 hours")
+	}
+}
+
+func TestFormatWaitDuration_OneHour(t *testing.T) {
+	result := formatWaitDuration(1 * time.Hour)
+	if result != "1 hour" {
+		t.Errorf("formatWaitDuration(1h) = %q, want %q", result, "1 hour")
+	}
+}
+
+func TestFormatWaitDuration_Days(t *testing.T) {
+	result := formatWaitDuration(8 * 24 * time.Hour)
+	if result != "8 days" {
+		t.Errorf("formatWaitDuration(8d) = %q, want %q", result, "8 days")
+	}
+}
+
+func TestFormatWaitDuration_OneDay(t *testing.T) {
+	result := formatWaitDuration(1 * 24 * time.Hour)
+	if result != "1 day" {
+		t.Errorf("formatWaitDuration(1d) = %q, want %q", result, "1 day")
+	}
+}
+
+func TestFormatWaitDuration_LessThanMinute(t *testing.T) {
+	result := formatWaitDuration(30 * time.Second)
+	if result != "just now" {
+		t.Errorf("formatWaitDuration(30s) = %q, want %q", result, "just now")
+	}
+}
+
+// --- formatTimeAgo tests ---
+
+func TestFormatTimeAgo_Days(t *testing.T) {
+	result := formatTimeAgo(time.Now().Add(-3 * 24 * time.Hour))
+	if result != "3 days ago" {
+		t.Errorf("formatTimeAgo(-3d) = %q, want %q", result, "3 days ago")
+	}
+}
+
+func TestFormatTimeAgo_Hours(t *testing.T) {
+	result := formatTimeAgo(time.Now().Add(-5 * time.Hour))
+	if result != "5 hours ago" {
+		t.Errorf("formatTimeAgo(-5h) = %q, want %q", result, "5 hours ago")
+	}
+}
+
+func TestFormatTimeAgo_Minutes(t *testing.T) {
+	result := formatTimeAgo(time.Now().Add(-20 * time.Minute))
+	if result != "20 min ago" {
+		t.Errorf("formatTimeAgo(-20m) = %q, want %q", result, "20 min ago")
 	}
 }
 
