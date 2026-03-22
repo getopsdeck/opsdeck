@@ -205,12 +205,22 @@ func FormatComparison(cmp DayComparison) string {
 	b.WriteString("=== OpsDeck Productivity Report ===\n")
 	b.WriteString(fmt.Sprintf("Today (%s) vs Yesterday (%s)\n\n", cmp.Today.Date, cmp.Yesterday.Date))
 
-	// Trend headline.
+	// Trend headline with context.
+	today := time.Now()
+	isWeekend := today.Weekday() == time.Saturday || today.Weekday() == time.Sunday
+	yesterdayOutlier := cmp.Yesterday.TotalEdits > 3*cmp.Today.TotalEdits && cmp.Yesterday.TotalEdits > 50
+
 	switch cmp.Trend {
 	case "more productive":
 		b.WriteString("Trend: UP -- You're more productive than yesterday.\n\n")
 	case "less productive":
-		b.WriteString("Trend: DOWN -- Less activity than yesterday.\n\n")
+		reason := ""
+		if isWeekend {
+			reason = " (weekend)"
+		} else if yesterdayOutlier {
+			reason = " (yesterday was unusually active)"
+		}
+		b.WriteString(fmt.Sprintf("Trend: DOWN -- Less activity than yesterday%s.\n\n", reason))
 	default:
 		b.WriteString("Trend: STEADY -- Similar activity level.\n\n")
 	}
