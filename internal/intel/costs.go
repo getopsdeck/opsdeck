@@ -289,6 +289,7 @@ func formatTokens(n int64) string {
 }
 
 // RunCostReport is the entrypoint for the `opsdeck costs` subcommand.
+// It supports a --since flag matching the brief subcommand's behavior.
 func RunCostReport() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -299,7 +300,25 @@ func RunCostReport() {
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
 
-	since := time.Now().Add(-24 * time.Hour)
+	// Parse --since flag from remaining args.
+	sinceValue := ""
+	for i := 1; i < len(os.Args); i++ {
+		if os.Args[i] == "--since" && i+1 < len(os.Args) {
+			sinceValue = os.Args[i+1]
+			break
+		}
+		if len(os.Args[i]) > 8 && os.Args[i][:8] == "--since=" {
+			sinceValue = os.Args[i][8:]
+			break
+		}
+	}
+
+	since, err := ParseSinceFlag(sinceValue)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
+
 	report, err := GenerateCostReport(projectsDir, sessionsDir, since)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

@@ -98,6 +98,7 @@ Commands:
 
 Flags:
   brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
+  costs --since <duration>   Only include costs from last N hours
 
 OpsDeck reads Claude Code session data from ~/.claude/ and is strictly
 read-only — it never modifies your sessions or sends data anywhere.

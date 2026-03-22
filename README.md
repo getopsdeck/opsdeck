@@ -76,6 +76,7 @@ opsdeck metrics
 
 # Cost analytics — token usage and estimated spend per session
 opsdeck costs
+opsdeck costs --since 2h   # last 2 hours only
 
 # AI-powered brief — natural language morning summary (opt-in, costs tokens)
 opsdeck ai-brief
@@ -176,6 +177,7 @@ no analytics. Everything stays on your machine.
 | Productivity metrics      | Yes     | No           | No      | No           |
 | Session activity detail   | Yes     | No           | No      | No           |
 | Session timeline           | Yes     | No           | No      | No           |
+| Git branch / status       | Yes     | No           | No      | No           |
 | AI-powered brief          | Yes     | No           | No      | No           |
 | Zero config               | Yes     | No           | Yes     | Yes          |
 | Read-only / non-invasive  | Yes     | No (manages) | Yes     | Yes          |
