@@ -306,11 +306,15 @@ func runStatus() {
 	line := strings.Join(parts, " | ")
 
 	if topWait != "" {
+		var waitStr string
 		if topWaitDur.Hours() >= 24 {
-			line += fmt.Sprintf(" | %s waiting %.0fd", topWait, topWaitDur.Hours()/24)
+			waitStr = fmt.Sprintf("%.0fd", topWaitDur.Hours()/24)
+		} else if topWaitDur.Minutes() >= 60 {
+			waitStr = fmt.Sprintf("%.0fh", topWaitDur.Hours())
 		} else {
-			line += fmt.Sprintf(" | %s waiting %.0fh", topWait, topWaitDur.Hours())
+			waitStr = fmt.Sprintf("%.0fm", topWaitDur.Minutes())
 		}
+		line += fmt.Sprintf(" | %s waiting %s", topWait, waitStr)
 	}
 
 	fmt.Println(line)
