@@ -230,8 +230,18 @@ func notifyMac(title, message string) {
 	).Run()
 }
 
+// isTTY reports whether stdout is connected to a terminal.
+func isTTY() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 // runList prints a compact list of all sessions with state and project.
 func runList() {
+	useColor := isTTY()
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -278,21 +288,30 @@ func runList() {
 			}
 
 			icon := "○"
-			color := "\033[0m" // reset
+			color := ""
+			reset := ""
+			if useColor {
+				color = "\033[0m"
+				reset = "\033[0m"
+				switch state {
+				case discovery.StateBusy:
+					color = "\033[32m"
+				case discovery.StateWaiting:
+					color = "\033[33m"
+				case discovery.StateIdle:
+					color = "\033[90m"
+				case discovery.StateDead:
+					color = "\033[31m"
+				}
+			}
 			switch state {
 			case discovery.StateBusy:
 				icon = "●"
-				color = "\033[32m" // green
 			case discovery.StateWaiting:
 				icon = "◐"
-				color = "\033[33m" // yellow
-			case discovery.StateIdle:
-				color = "\033[90m" // gray
 			case discovery.StateDead:
 				icon = "✕"
-				color = "\033[31m" // red
 			}
-			reset := "\033[0m"
 
 			// For WAITING sessions, show how long they've been waiting.
 			extra := s.StartedAt.Format("Jan 02 15:04")
