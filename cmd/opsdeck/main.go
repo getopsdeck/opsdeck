@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -324,6 +325,14 @@ func isTTY() bool {
 
 // runList prints a compact list of all sessions with state and project.
 func runList() {
+	// Check for --json flag.
+	jsonOutput := false
+	for _, arg := range os.Args[2:] {
+		if arg == "--json" {
+			jsonOutput = true
+		}
+	}
+
 	useColor := isTTY()
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -340,6 +349,15 @@ func runList() {
 	}
 
 	projects := discovery.GroupByProject(sessions)
+
+	if jsonOutput {
+		// JSON output: use monitor.Snapshot for enriched data.
+		enriched := monitor.Snapshot(sessionsDir, projectsDir)
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(enriched)
+		return
+	}
 
 	fmt.Printf("%-14s %-12s %-8s %-18s %s\n", "SESSION", "PROJECT", "STATE", "BRANCH", "STARTED")
 	fmt.Println(strings.Repeat("-", 72))
