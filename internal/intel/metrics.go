@@ -32,6 +32,7 @@ type ProjectDayMetrics struct {
 	Commands int
 	Errors   int
 	Files    int
+	GitOps   int
 	Sessions int // sessions with activity
 }
 
@@ -100,11 +101,13 @@ func ComputeDayMetrics(projectsDir, sessionsDir string, day time.Time) DayMetric
 			}
 		}
 
-		// Count files from the summary if we had activity today.
-		if dayActivities > 0 {
+		// Also count sessions with reads-only as active.
+		hasActivity := dayActivities > 0 || summary.ReadCount > 0
+
+		// Count files only from activities within the day window (not all files in summary).
+		if hasActivity {
 			activeSessions++
-			for _, f := range summary.FilesChanged {
-				dayFiles[f] = true
+			for f := range dayFiles {
 				allFiles[f] = true
 			}
 
@@ -121,6 +124,7 @@ func ComputeDayMetrics(projectsDir, sessionsDir string, day time.Time) DayMetric
 			pm.Commands += dayCommands
 			pm.Errors += dayErrors
 			pm.Files += len(dayFiles)
+			pm.GitOps += dayGitOps
 			pm.Sessions++
 		}
 	}
@@ -136,9 +140,8 @@ func ComputeDayMetrics(projectsDir, sessionsDir string, day time.Time) DayMetric
 		totalEdits += pm.Edits
 		totalCommands += pm.Commands
 		totalErrors += pm.Errors
+		totalGitOps += pm.GitOps
 	}
-	// Sum git ops separately since they're not per-project in current model.
-	_ = totalGitOps
 
 	return DayMetrics{
 		Date:           start.Format("2006-01-02"),

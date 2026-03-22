@@ -102,8 +102,8 @@ func buildProjectBrief(proj discovery.Project, projectsDir string, since time.Ti
 			continue
 		}
 
-		// A session is "active" if it had any edits, commands, or activities.
-		if summary.EditCount > 0 || summary.BashCount > 0 || len(summary.Activities) > 0 {
+		// A session is "active" if it had any edits, commands, reads, or activities.
+		if summary.EditCount > 0 || summary.BashCount > 0 || summary.ReadCount > 0 || len(summary.Activities) > 0 {
 			pb.ActiveCount++
 		}
 
