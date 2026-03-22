@@ -23,6 +23,9 @@ fix it.
 - Updates every 3 seconds; vi-style keyboard navigation (j/k, /, 1-4 for state filters)
 - `opsdeck brief` — plaintext daily summary across all projects
 - `opsdeck metrics` — today vs yesterday productivity comparison with a Momentum score
+- `opsdeck costs` — token usage and estimated spend per session ($X.XX today)
+- `opsdeck web` — browser dashboard with live updates, search, clickable filters, session timeline, and cost tracking
+- `opsdeck ai-brief` — AI-powered morning summary via claude -p (opt-in)
 
 ---
 

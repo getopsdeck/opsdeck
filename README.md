@@ -175,6 +175,8 @@ no analytics. Everything stays on your machine.
 | Daily brief               | Yes     | No           | No      | No           |
 | Productivity metrics      | Yes     | No           | No      | No           |
 | Session activity detail   | Yes     | No           | No      | No           |
+| Session timeline           | Yes     | No           | No      | No           |
+| AI-powered brief          | Yes     | No           | No      | No           |
 | Zero config               | Yes     | No           | Yes     | Yes          |
 | Read-only / non-invasive  | Yes     | No (manages) | Yes     | Yes          |
 | Cost analytics            | Yes     | No           | Yes     | Yes          |

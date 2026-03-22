@@ -14,9 +14,11 @@ OpsDeck is a single Go binary that reads Claude Code's session files (the same
 real-time terminal dashboard. It classifies each session as BUSY (active in the
 last 30s), WAITING (30s–5min, likely needs you), IDLE (5min+), or DEAD (process
 gone). Sessions are grouped by project so you can see at a glance what's
-happening across your whole codebase. It also has `opsdeck brief` for a
-plaintext daily summary across all projects, and `opsdeck metrics` for today vs
-yesterday productivity comparison.
+happening across your whole codebase. Other commands:
+- `opsdeck brief` — plaintext daily summary across all projects
+- `opsdeck metrics` — today vs yesterday productivity comparison
+- `opsdeck costs` — token usage and estimated spend per session
+- `opsdeck web` — browser dashboard with real-time SSE, search, filters, session timeline, and cost tracking
 
 The design constraint I cared most about: it is strictly read-only. It checks
 process liveness with `kill -0` (which only tests whether the PID exists — no
