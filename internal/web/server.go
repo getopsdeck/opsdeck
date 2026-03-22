@@ -21,13 +21,14 @@ import (
 
 // SessionView is the JSON-friendly representation of a session for the web UI.
 type SessionView struct {
-	ID        string    `json:"id"`
-	PID       int       `json:"pid"`
-	CWD       string    `json:"cwd,omitempty"`
-	State     string    `json:"state"`
-	Project   string    `json:"project"`
-	StartedAt time.Time `json:"started_at"`
-	WorkingOn string    `json:"working_on"`
+	ID             string    `json:"id"`
+	PID            int       `json:"pid"`
+	CWD            string    `json:"cwd,omitempty"`
+	State          string    `json:"state"`
+	Project        string    `json:"project"`
+	StartedAt      time.Time `json:"started_at"`
+	WorkingOn      string    `json:"working_on"`
+	TranscriptPath string    `json:"-"` // internal only, not exposed to clients
 
 	// Activity data (populated on detail request).
 	EditCount    int      `json:"edit_count"`
@@ -141,14 +142,15 @@ func (s *Server) refresh() {
 	var views []SessionView
 	for _, ms := range enriched {
 		view := SessionView{
-			ID:        ms.ID,
-			PID:       ms.PID,
-			CWD:       ms.CWD,
-			State:     ms.State,
-			Project:   ms.Project,
-			StartedAt: ms.StartedAt,
-			WorkingOn: ms.WorkingOn,
-			Messages:  ms.MessageCount,
+			ID:             ms.ID,
+			PID:            ms.PID,
+			CWD:            ms.CWD,
+			State:          ms.State,
+			Project:        ms.Project,
+			StartedAt:      ms.StartedAt,
+			WorkingOn:      ms.WorkingOn,
+			Messages:       ms.MessageCount,
+			TranscriptPath: ms.TranscriptPath,
 		}
 
 		// Extended git info (ahead/behind/last-commit) for the web detail view.
@@ -247,16 +249,13 @@ func (s *Server) handleAPISessionDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	home, _ := os.UserHomeDir()
-	projectsDir := filepath.Join(home, ".claude", "projects")
-
-	// Find the session in the snapshot.
+	// Look up the session in the snapshot (already has TranscriptPath).
 	s.snapshot.mu.RLock()
 	var target *SessionView
 	for i := range s.snapshot.sessions {
 		if s.snapshot.sessions[i].ID == sessionID {
-			copy := s.snapshot.sessions[i]
-			target = &copy
+			cp := s.snapshot.sessions[i]
+			target = &cp
 			break
 		}
 	}
@@ -267,33 +266,26 @@ func (s *Server) handleAPISessionDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Get full activity details from transcript.
-	raw, _ := discovery.ScanSessions(filepath.Join(home, ".claude", "sessions"))
-	for _, rs := range raw {
-		if rs.ID == sessionID {
-			transcriptPath := discovery.FindTranscriptPath(projectsDir, rs.CWD, rs.ID)
-			if transcriptPath != "" {
-				summary, err := intel.ExtractSummary(transcriptPath)
-				if err == nil {
-					target.Activities = intel.SummarizeActivities(summary.Activities)
-					if summary.LastUserMsg != "" {
-						runes := []rune(summary.LastUserMsg)
-						if len(runes) > 200 {
-							target.LastRequest = string(runes[:197]) + "..."
-						} else {
-							target.LastRequest = summary.LastUserMsg
-						}
-					}
-				}
-
-				// Cost data for detail view.
-				cost, err := intel.ExtractCosts(transcriptPath, time.Time{})
-				if err == nil {
-					target.TotalTokens = cost.TotalTokens
-					target.EstCostUSD = cost.EstCostUSD
+	// Use the stored TranscriptPath — no ScanSessions needed.
+	if target.TranscriptPath != "" {
+		summary, err := intel.ExtractSummary(target.TranscriptPath)
+		if err == nil {
+			target.Activities = intel.SummarizeActivities(summary.Activities)
+			if summary.LastUserMsg != "" {
+				runes := []rune(summary.LastUserMsg)
+				if len(runes) > 200 {
+					target.LastRequest = string(runes[:197]) + "..."
+				} else {
+					target.LastRequest = summary.LastUserMsg
 				}
 			}
-			break
+		}
+
+		// Cost data for detail view (all-time, not just 24h).
+		cost, err := intel.ExtractCosts(target.TranscriptPath, time.Time{})
+		if err == nil {
+			target.TotalTokens = cost.TotalTokens
+			target.EstCostUSD = cost.EstCostUSD
 		}
 	}
 
