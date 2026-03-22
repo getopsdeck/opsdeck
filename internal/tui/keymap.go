@@ -19,6 +19,7 @@ type KeyMap struct {
 	FilterState3 key.Binding // idle
 	FilterState4 key.Binding // dead
 	FilterClear  key.Binding // clear filter
+	Resume       key.Binding // resume selected session
 }
 
 // DefaultKeyMap returns the default key bindings.
@@ -75,6 +76,10 @@ func DefaultKeyMap() KeyMap {
 		FilterClear: key.NewBinding(
 			key.WithKeys("0"),
 			key.WithHelp("0", "clear filter"),
+		),
+		Resume: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "resume session"),
 		),
 	}
 }

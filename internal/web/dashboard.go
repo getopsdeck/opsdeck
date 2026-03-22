@@ -381,6 +381,8 @@ function renderFiltered() {
         const ago = timeAgo(new Date(s.started_at));
         const branchLabel = s.git_branch ? escapeHtml(s.git_branch) + (s.git_dirty ? ' *' : '') : '-';
         const branchStyle = s.git_dirty ? 'color:var(--yellow)' : 'color:var(--cyan)';
+        const burnHtml = s.state === 'busy' ? formatBurnRate(s.burn_rate) : '';
+        const activityText = s.working_on ? escapeHtml(s.working_on) : formatStats(s);
         row.innerHTML =
           '<td class="state-icon">' + (stateIcons[s.state] || '?') + '</td>' +
           '<td>' + escapeHtml(s.project) + '</td>' +
@@ -388,7 +390,7 @@ function renderFiltered() {
           '<td style="font-family:monospace;font-size:12px">' + escapeHtml(s.id.substring(0,12)) + '</td>' +
           '<td>' + escapeHtml(s.state.toUpperCase()) + '</td>' +
           '<td>' + ago + '</td>' +
-          '<td style="color:var(--fg-dark)">' + (s.working_on ? escapeHtml(s.working_on) : formatStats(s)) + '</td>';
+          '<td style="color:var(--fg-dark)">' + activityText + (burnHtml ? ' ' + burnHtml : '') + '</td>';
         tbody.appendChild(row);
       });
     });
@@ -396,6 +398,14 @@ function renderFiltered() {
 
   document.getElementById('last-updated').textContent =
     'Updated ' + new Date().toLocaleTimeString();
+}
+
+function formatBurnRate(rate) {
+  if (!rate || rate <= 0) return '';
+  const label = '$' + rate.toFixed(2) + '/hr';
+  if (rate < 5) return '<span style="color:var(--green);font-size:12px">' + label + '</span>';
+  if (rate < 20) return '<span style="color:var(--yellow);font-size:12px">' + label + '</span>';
+  return '<span style="color:var(--red);font-size:12px">' + label + '</span>';
 }
 
 function formatStats(s) {

@@ -289,6 +289,65 @@ func formatTokens(n int64) string {
 	return fmt.Sprintf("%d", n)
 }
 
+// CalculateBurnRate reads the last 10 minutes of assistant messages from a
+// transcript and returns the estimated cost per hour in USD. Returns 0.0 if
+// there are no assistant messages in the last 10 minutes (session is idle).
+//
+// Pricing blended ~$45/M tokens (Opus: $15 input + $75 output average).
+func CalculateBurnRate(path string) float64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0.0
+	}
+	defer f.Close()
+
+	window := time.Now().Add(-10 * time.Minute)
+	var totalCost float64
+	var hasMessages bool
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		var tl transcriptLine
+		if json.Unmarshal(line, &tl) != nil {
+			continue
+		}
+
+		if tl.Type != "assistant" || tl.Timestamp == "" {
+			continue
+		}
+
+		ts, err := time.Parse(time.RFC3339Nano, tl.Timestamp)
+		if err != nil || ts.Before(window) {
+			continue
+		}
+
+		var msg transcriptMsg
+		if json.Unmarshal(tl.Message, &msg) != nil {
+			continue
+		}
+		if msg.Usage.InputTokens == 0 && msg.Usage.OutputTokens == 0 {
+			continue
+		}
+
+		hasMessages = true
+		totalCost += estimateCostForMessage(msg.Model, msg.Usage)
+	}
+
+	if !hasMessages {
+		return 0.0
+	}
+
+	// Extrapolate the 10-minute window to an hourly rate.
+	return totalCost * 6.0
+}
+
 // RunCostReport is the entrypoint for the `opsdeck costs` subcommand.
 // It tries ccusage first (accurate pricing from LiteLLM), falls back to
 // built-in estimation if ccusage is not installed.

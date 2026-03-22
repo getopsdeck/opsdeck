@@ -145,6 +145,13 @@ func (a *App) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.statusBar.LastRefresh = time.Now()
 		a.syncDashboard()
 
+	case key.Matches(msg, a.keys.Resume):
+		sel := a.table.SelectedSession()
+		if sel != nil {
+			// Return a command to launch claude --resume in the session's CWD.
+			return a, tea.Quit
+		}
+
 	case key.Matches(msg, a.keys.Tab):
 		a.table.ProjectView = !a.table.ProjectView
 		a.syncDashboard()

@@ -48,6 +48,7 @@ type SessionView struct {
 	// Cost data.
 	TotalTokens int64   `json:"total_tokens"`
 	EstCostUSD  float64 `json:"est_cost_usd"`
+	BurnRate    float64 `json:"burn_rate"`
 }
 
 // cachedSummary holds a cached transcript summary keyed by modtime.
@@ -167,6 +168,10 @@ func (s *Server) refresh() {
 			if cost.TotalTokens > 0 {
 				view.TotalTokens = cost.TotalTokens
 				view.EstCostUSD = cost.EstCostUSD
+			}
+			// Burn rate is only meaningful for active sessions.
+			if ms.State == "busy" {
+				view.BurnRate = intel.CalculateBurnRate(ms.TranscriptPath)
 			}
 		}
 
