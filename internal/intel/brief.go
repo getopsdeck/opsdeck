@@ -211,7 +211,10 @@ func EnrichBrief(brief *DailyBrief, projectsDir, sessionsDir string, since time.
 						// Prefer assistant's last message (what it was doing).
 						// Fall back to user's last message if no assistant output.
 						if summary.LastAssistMsg != "" {
-							lastMsg = truncate(summary.LastAssistMsg, 40)
+							// Replace newlines with spaces for single-line display.
+							clean := strings.ReplaceAll(summary.LastAssistMsg, "\n", " ")
+							clean = strings.Join(strings.Fields(clean), " ")
+							lastMsg = truncate(clean, 40)
 						} else if summary.LastUserMsg != "" {
 							lastMsg = truncate(summary.LastUserMsg, 40)
 						}
