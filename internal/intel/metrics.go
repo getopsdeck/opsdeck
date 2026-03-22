@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -241,10 +242,15 @@ func FormatComparison(cmp DayComparison) string {
 	writeRow("Projects active", cmp.Today.Projects, cmp.Yesterday.Projects, cmp.ProjectsDelta)
 	writeRow("Errors", cmp.Today.TotalErrors, cmp.Yesterday.TotalErrors, -cmp.ErrorsDelta) // fewer errors = positive
 
-	// Per-project today breakdown.
+	// Per-project today breakdown, sorted by activity.
 	if len(cmp.Today.ProjectMetrics) > 0 {
+		sorted := make([]ProjectDayMetrics, len(cmp.Today.ProjectMetrics))
+		copy(sorted, cmp.Today.ProjectMetrics)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Edits+sorted[i].Commands > sorted[j].Edits+sorted[j].Commands
+		})
 		b.WriteString("\nToday by project:\n")
-		for _, pm := range cmp.Today.ProjectMetrics {
+		for _, pm := range sorted {
 			b.WriteString(fmt.Sprintf("  %-20s %d edits, %d commands, %d files\n",
 				pm.Name, pm.Edits, pm.Commands, pm.Files))
 		}
