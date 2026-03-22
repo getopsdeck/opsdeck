@@ -44,6 +44,7 @@ type SessionView struct {
 type cachedSummary struct {
 	modTime time.Time
 	summary intel.SessionSummary
+	cost    intel.SessionCost
 }
 
 // Snapshot holds the current state of all sessions, refreshed periodically.
@@ -150,13 +151,17 @@ func (s *Server) refresh() {
 
 		// Use cached transcript summary to avoid re-parsing unchanged files.
 		if transcriptPath != "" {
-			summary := s.cachedExtract(transcriptPath)
+			summary, cost := s.cachedExtract(transcriptPath)
 			if summary.TotalMessages > 0 {
 				view.EditCount = summary.EditCount
 				view.BashCount = summary.BashCount
 				view.ErrorCount = summary.ErrorCount
 				view.FilesChanged = len(summary.FilesChanged)
 				view.Messages = summary.TotalMessages
+			}
+			if cost.TotalTokens > 0 {
+				view.TotalTokens = cost.TotalTokens
+				view.EstCostUSD = cost.EstCostUSD
 			}
 		}
 
@@ -172,28 +177,26 @@ func (s *Server) refresh() {
 	s.snapshot.mu.Unlock()
 }
 
-// cachedExtract returns a transcript summary, using a cache keyed by file
-// modification time to avoid re-parsing unchanged transcripts.
-func (s *Server) cachedExtract(path string) intel.SessionSummary {
+// cachedExtract returns a transcript summary and cost data, using a cache
+// keyed by file modification time to avoid re-parsing unchanged transcripts.
+func (s *Server) cachedExtract(path string) (intel.SessionSummary, intel.SessionCost) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return intel.SessionSummary{}
+		return intel.SessionSummary{}, intel.SessionCost{}
 	}
 
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
 	if cached, ok := s.cache[path]; ok && cached.modTime.Equal(info.ModTime()) {
-		return cached.summary
+		return cached.summary, cached.cost
 	}
 
-	summary, err := intel.ExtractSummary(path)
-	if err != nil {
-		return intel.SessionSummary{}
-	}
+	summary, _ := intel.ExtractSummary(path)
+	cost, _ := intel.ExtractCosts(path, time.Time{})
 
-	s.cache[path] = cachedSummary{modTime: info.ModTime(), summary: summary}
-	return summary
+	s.cache[path] = cachedSummary{modTime: info.ModTime(), summary: summary, cost: cost}
+	return summary, cost
 }
 
 // handleAPISessions returns the current session list as JSON.
