@@ -214,6 +214,7 @@ The one exception is `opsdeck ai-brief`, which pipes session data through
 | Zero config               | Yes     | No           | Yes     | Yes          |
 | Read-only / non-invasive  | Yes     | No (manages) | Yes     | Yes          |
 | Cost analytics            | Yes     | No           | Yes     | Yes          |
+| MCP server                | Yes     | No           | Yes     | No           |
 | Keyboard navigation       | TUI+Web | Yes          | No      | No           |
 
 OpsDeck is designed to complement your existing workflow. It does not manage or
