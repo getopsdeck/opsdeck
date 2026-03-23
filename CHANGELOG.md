@@ -63,3 +63,14 @@
 - `opsdeck metrics` — productivity comparison
 - Session discovery, PID checking, state classification
 - CI green on macOS + Linux
+
+## v1.3.0 — Export, Clean, Favicon
+- `opsdeck export` saves brief to markdown file
+- `opsdeck clean` lists dead sessions for cleanup
+- SVG favicon for web dashboard browser tab
+- GitHub badges in README (CI, release, license, Go report)
+- Status command shows daily cost ($XXX today)
+- Web Morning Brief card opens by default
+- Help reorganized into categories
+- CHANGELOG.md added
+- Opus plan + Sonnet implement workflow: 5/5 success rate
