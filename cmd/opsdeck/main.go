@@ -79,7 +79,13 @@ func main() {
 		case "resume":
 			runResume()
 			return
-		case "web", "serve":
+		case "export":
+			runExport()
+			return
+		case "clean":
+		runClean()
+		return
+	case "web", "serve":
 			addr := "localhost:7070"
 			if len(os.Args) > 2 {
 				addr = os.Args[2]
@@ -132,6 +138,8 @@ Commands:
   list         Compact list of all sessions with state and branch
   costs        Token usage and estimated spend per session
   ai-brief     AI-powered morning brief via claude -p (costs tokens)
+  clean        Show dead sessions that can be cleaned up
+  export       Export daily brief to markdown file
   resume <id>  Resume a Claude Code session (supports prefix match)
   watch        Monitor sessions, alert on state changes (macOS notifications)
   web [addr]   Web dashboard at addr (default: localhost:7070)
@@ -567,4 +575,79 @@ func runBrief() {
 	} else {
 		fmt.Print(intel.FormatDailyBrief(brief))
 	}
+}
+
+// runClean lists dead sessions that could be cleaned up. It is strictly
+// read-only and never deletes anything.
+func runClean() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	projectsDir := filepath.Join(home, ".claude", "projects")
+
+	enriched := monitor.Snapshot(sessionsDir, projectsDir)
+
+	var dead []monitor.Session
+	for _, s := range enriched {
+		if s.State == "dead" {
+			dead = append(dead, s)
+		}
+	}
+
+	if len(dead) == 0 {
+		fmt.Println("No dead sessions found.")
+		return
+	}
+
+	// Sort dead sessions by start time, oldest first.
+	sort.Slice(dead, func(i, j int) bool {
+		return dead[i].StartedAt.Before(dead[j].StartedAt)
+	})
+
+	fmt.Printf("%d dead session(s) found:\n\n", len(dead))
+	fmt.Printf("%-36s %-20s %s\n", "SESSION ID", "PROJECT", "STARTED")
+	fmt.Println(strings.Repeat("-", 72))
+	for _, s := range dead {
+		fmt.Printf("%-36s %-20s %s\n", s.ID, s.Project, s.StartedAt.Format("2006-01-02 15:04"))
+	}
+	fmt.Println()
+	fmt.Println("To clean up, remove session files from ~/.claude/sessions/")
+}
+
+// runExport generates a daily brief and writes it to a markdown file in the
+// current directory named opsdeck-brief-YYYY-MM-DD.md.
+func runExport() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: cannot determine home directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	sessionsDir := filepath.Join(home, ".claude", "sessions")
+	projectsDir := filepath.Join(home, ".claude", "projects")
+
+	// Use a 24-hour window, matching the default brief behaviour.
+	since, _ := intel.ParseSinceFlag("24h")
+
+	brief, err := intel.GenerateBrief(projectsDir, sessionsDir, since)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating brief: %v\n", err)
+		os.Exit(1)
+	}
+
+	intel.EnrichBrief(&brief, projectsDir, sessionsDir, since)
+
+	content := intel.FormatDailyBrief(brief)
+
+	filename := fmt.Sprintf("opsdeck-brief-%s.md", time.Now().Format("2006-01-02"))
+	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Brief exported to %s\n", filename)
 }

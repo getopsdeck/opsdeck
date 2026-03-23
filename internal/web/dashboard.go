@@ -21,6 +21,7 @@ const dashboardHTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237aa2f7'/><text x='50' y='68' font-size='55' font-family='monospace' fill='%231a1b26' text-anchor='middle' font-weight='bold'>O</text></svg>">
 <title>OpsDeck</title>
 <style>
   :root {
