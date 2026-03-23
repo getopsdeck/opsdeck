@@ -93,6 +93,12 @@ opsdeck costs --instances  # per-project breakdown
 # AI-powered brief — natural language morning summary (opt-in, costs tokens)
 opsdeck ai-brief
 
+# Export brief to markdown file
+opsdeck export
+
+# Show dead sessions for cleanup
+opsdeck clean
+
 # Resume a session — opens claude --resume in the session's directory
 opsdeck resume <session-id>
 opsdeck resume 2820          # prefix match
