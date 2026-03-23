@@ -259,7 +259,7 @@ func checkSessions(sessionsDir, projectsDir string, lastStates map[string]string
 // notifyMac sends a macOS notification via osascript. Silent failure on Linux.
 func notifyMac(title, message string) {
 	exec.Command("osascript", "-e",
-		fmt.Sprintf(`display notification "%s" with title "%s"`, message, title),
+		fmt.Sprintf(`display notification "%s" with title "%s" sound name "Submarine"`, message, title),
 	).Run()
 }
 
