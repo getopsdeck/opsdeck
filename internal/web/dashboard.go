@@ -45,7 +45,7 @@ const dashboardHTML = `<!DOCTYPE html>
     line-height: 1.5;
   }
   header {
-    background: var(--blue);
+    background: linear-gradient(135deg, var(--blue), #5b8def);
     color: var(--bg);
     padding: 12px 24px;
     display: flex;
@@ -62,16 +62,28 @@ const dashboardHTML = `<!DOCTYPE html>
     flex-wrap: wrap;
   }
   .stat-badge {
-    padding: 6px 16px;
+    padding: 8px 20px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
   .stat-busy { background: #9ece6a22; color: var(--green); border: 1px solid #9ece6a44; }
   .stat-waiting { background: #e0af6822; color: var(--yellow); border: 1px solid #e0af6844; }
   .stat-idle { background: #565f8922; color: var(--fg-dark); border: 1px solid #565f8944; }
   .stat-dead { background: #f7768e22; color: var(--red); border: 1px solid #f7768e44; }
   @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-highlight) 25%, var(--border) 50%, var(--bg-highlight) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    height: 14px;
+    border-radius: 4px;
+    margin: 6px 0;
+  }
   .state-waiting .state-icon { animation: pulse 2s ease-in-out infinite; }
   .state-busy .state-icon { animation: pulse 1s ease-in-out infinite; }
   .live-dot { display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50%; margin-right:8px; animation: pulse 2s ease-in-out infinite; }
@@ -93,8 +105,8 @@ const dashboardHTML = `<!DOCTYPE html>
     padding: 10px 12px;
     border-bottom: 1px solid var(--bg-highlight);
   }
-  tr { cursor: pointer; transition: background 0.15s; }
-  tr:hover { background: var(--bg-highlight); }
+  tr { cursor: pointer; transition: background 0.15s, transform 0.15s; }
+  tr:hover { background: var(--bg-highlight); transform: translateY(-1px); }
   tr.selected { background: var(--bg-highlight); border-left: 3px solid var(--blue); }
   .state-icon { font-size: 16px; }
   .state-busy .state-icon { color: var(--green); }
@@ -115,8 +127,12 @@ const dashboardHTML = `<!DOCTYPE html>
     border-radius: 8px;
     padding: 20px;
     display: none;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
   }
-  .detail-panel.open { display: block; }
+  .detail-panel.open { display: block; max-height: 2000px; opacity: 1; }
   .detail-title {
     font-size: 16px;
     font-weight: bold;
@@ -144,8 +160,16 @@ const dashboardHTML = `<!DOCTYPE html>
   .last-updated {
     text-align: right;
     color: var(--fg-dark);
-    font-size: 12px;
+    font-size: 11px;
     margin-top: 8px;
+    opacity: 0.6;
+    letter-spacing: 0.3px;
+  }
+  @media (max-width: 768px) {
+    .container { padding: 8px; }
+    table { font-size: 12px; }
+    th, td { padding: 6px 4px; }
+    .stats { gap: 6px; }
   }
   .timeline-container {
     margin-top: 12px;
@@ -272,7 +296,11 @@ const dashboardHTML = `<!DOCTYPE html>
       Morning Brief <span id="brief-toggle">&#9656;</span>
     </div>
     <div class="brief-body" id="brief-body" style="display:none">
-      <div id="brief-content">Loading...</div>
+      <div id="brief-content">
+        <div class="skeleton" style="width:80%"></div>
+        <div class="skeleton" style="width:65%"></div>
+        <div class="skeleton" style="width:72%"></div>
+      </div>
     </div>
   </div>
   <input class="search-bar" id="search" type="text" placeholder="Search by project, session ID, or activity..." autocomplete="off">
