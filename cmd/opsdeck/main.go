@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,8 +13,11 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/getopsdeck/opsdeck/internal/discovery"
 	"github.com/getopsdeck/opsdeck/internal/intel"
+	opsmcp "github.com/getopsdeck/opsdeck/internal/mcp"
 	"github.com/getopsdeck/opsdeck/internal/monitor"
 	"github.com/getopsdeck/opsdeck/internal/tui"
 	"github.com/getopsdeck/opsdeck/internal/web"
@@ -84,6 +88,13 @@ func main() {
 			return
 		case "clean":
 		runClean()
+		return
+	case "mcp-serve":
+		mcpServer := opsmcp.NewServer()
+		if err := mcpServer.Run(context.Background(), &sdkmcp.StdioTransport{}); err != nil {
+			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	case "web", "serve":
 			addr := "localhost:7070"
