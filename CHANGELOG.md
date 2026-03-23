@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4.0 — MCP Server
+- `opsdeck mcp-serve`: JSON-RPC server over stdio for Claude Code integration
+- 4 tools: get_sessions, get_brief, get_costs, get_session_detail
+- Register: `claude mcp add opsdeck -- opsdeck mcp-serve`
+- Official Go SDK (github.com/modelcontextprotocol/go-sdk)
+- 9 MCP tests with race detector
+
+## v1.3.0 — Export, Clean, Favicon
+- `opsdeck export` saves brief to markdown file
+- `opsdeck clean` lists dead sessions for cleanup
+- SVG favicon for web dashboard browser tab
+- Help reorganized into 5 categories (Dashboard/Reports/Actions/Integration/Advanced)
+- Status shows daily cost ($XXX today)
+- Web Morning Brief card opens by default
+- Opus plan + Sonnet implement workflow
+
 ## v1.2.0 — UI Polish
 - Header gradient, 44px touch targets, shimmer loading skeletons
 - Session rows hover lift, smooth detail panel transitions
