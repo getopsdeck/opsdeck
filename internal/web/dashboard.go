@@ -322,9 +322,9 @@ const dashboardHTML = `<!DOCTYPE html>
   <div class="stats" id="stats"></div>
   <div class="brief-card" id="brief-card">
     <div class="brief-header" onclick="toggleBrief()">
-      Morning Brief <span id="brief-toggle">&#9656;</span>
+      Morning Brief <span id="brief-toggle">&#9662;</span>
     </div>
-    <div class="brief-body" id="brief-body" style="display:none">
+    <div class="brief-body" id="brief-body">
       <div id="brief-content">
         <div class="skeleton" style="width:80%"></div>
         <div class="skeleton" style="width:65%"></div>
@@ -708,9 +708,9 @@ function escapeHtml(s) {
 function toggleBrief() {
   const body = document.getElementById('brief-body');
   const toggle = document.getElementById('brief-toggle');
-  const open = body.style.display === 'none';
-  body.style.display = open ? 'block' : 'none';
-  toggle.innerHTML = open ? '&#9662;' : '&#9656;';
+  const isOpen = body.style.display !== 'none' && body.style.display !== '';
+  body.style.display = isOpen ? 'none' : 'block';
+  toggle.innerHTML = isOpen ? '&#9656;' : '&#9662;';
 }
 
 function loadBrief() {

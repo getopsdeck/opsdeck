@@ -327,6 +327,10 @@ func runStatus() {
 		line += fmt.Sprintf(" | %s waiting %s", topWait, waitStr)
 	}
 
+	if costReport, err := intel.GenerateCostReport(projectsDir, sessionsDir, time.Now().Add(-24*time.Hour)); err == nil && costReport.TotalCost > 0 {
+		line += fmt.Sprintf(" | $%.0f today", costReport.TotalCost)
+	}
+
 	fmt.Println(line)
 }
 
