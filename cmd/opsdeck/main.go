@@ -130,21 +130,27 @@ func printHelp() {
 
 Usage: opsdeck [command]
 
-Commands:
-  (default)    Real-time TUI dashboard
-  brief        Daily briefing across all projects
+Dashboard:
+  (default)    TUI dashboard (j/k navigate, Enter detail, R resume)
+  web [addr]   Browser dashboard at addr (default: localhost:7070)
+
+Reports:
+  brief        Secretary-style daily briefing
+  status       One-line summary (for shell prompts / tmux)
+  list         Session list with state and branch
   metrics      Today vs yesterday productivity comparison
-  status       One-line summary (for shell prompts / tmux status bars)
-  list         Compact list of all sessions with state and branch
-  costs        Token usage and estimated spend per session
-  ai-brief     AI-powered morning brief via claude -p (costs tokens)
-  clean        Show dead sessions that can be cleaned up
-  export       Export daily brief to markdown file
-  resume <id>  Resume a Claude Code session (supports prefix match)
-  watch        Monitor sessions, alert on state changes (macOS notifications)
-  web [addr]   Web dashboard at addr (default: localhost:7070)
-  version      Show version information
-  help         Show this help message
+  costs        Token usage via ccusage (session/monthly/weekly)
+  export       Export brief to markdown file
+
+Actions:
+  resume <id>  Resume a session (prefix match)
+  watch        Monitor + macOS notifications on state changes
+  clean        Show dead sessions for cleanup
+
+Advanced:
+  ai-brief     AI morning brief via claude -p (costs tokens)
+  version      Show version
+  help         This message
 
 Flags:
   brief --since <duration>   Only include activity from last N hours (e.g. 2h, 48h)
