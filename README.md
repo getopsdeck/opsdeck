@@ -106,6 +106,11 @@ opsdeck resume 2820          # prefix match
 # Watch mode — monitor sessions, alert on state changes
 opsdeck watch                # macOS desktop notifications included
 
+# MCP server — let Claude Code query your sessions
+opsdeck mcp-serve            # JSON-RPC over stdio
+# Register: claude mcp add opsdeck -- opsdeck mcp-serve
+# Tools: get_sessions, get_brief, get_costs, get_session_detail
+
 # Web dashboard — browser-based UI with real-time updates
 opsdeck web                # opens http://localhost:7070
 opsdeck web :8080          # custom port
