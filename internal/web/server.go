@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -115,7 +116,20 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	log.Printf("OpsDeck web dashboard: http://%s\n", s.addr)
+	url := "http://" + s.addr
+	log.Printf("OpsDeck web dashboard: %s\n", url)
+
+	// Try to open browser automatically (best effort, silent failure).
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		// macOS: open, Linux: xdg-open
+		for _, cmd := range []string{"open", "xdg-open"} {
+			if err := exec.Command(cmd, url).Run(); err == nil {
+				return
+			}
+		}
+	}()
+
 	err := http.ListenAndServe(s.addr, s.mux)
 	if err != nil && strings.Contains(err.Error(), "address already in use") {
 		return fmt.Errorf("port %s is already in use. Try: opsdeck web :8080", s.addr)
