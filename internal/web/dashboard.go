@@ -282,6 +282,34 @@ const dashboardHTML = `<!DOCTYPE html>
   .brief-attention { color: var(--yellow); margin: 4px 0; font-size: 13px; }
   .brief-update { color: var(--fg); margin: 4px 0; font-size: 13px; }
   .brief-idle { color: var(--fg-dark); margin: 4px 0; font-size: 13px; }
+  .help-overlay {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+    z-index: 1000;
+    display: none;
+    min-width: 220px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .help-overlay.open { display: block; }
+  .help-overlay h4 { color: var(--blue); margin-bottom: 10px; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .help-row { display: flex; justify-content: space-between; gap: 20px; padding: 3px 0; color: var(--fg); }
+  .help-key {
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', monospace;
+    background: var(--bg-highlight);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    color: var(--cyan);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .help-desc { color: var(--fg-dark); }
 </style>
 </head>
 <body>
@@ -337,17 +365,101 @@ const dashboardHTML = `<!DOCTYPE html>
   </div>
   <div class="last-updated" id="last-updated"></div>
 </div>
+<div class="help-overlay" id="help-overlay">
+  <h4>Keyboard Shortcuts</h4>
+  <div class="help-row"><span class="help-key">/</span><span class="help-desc">Focus search</span></div>
+  <div class="help-row"><span class="help-key">j / k</span><span class="help-desc">Move selection down / up</span></div>
+  <div class="help-row"><span class="help-key">Enter</span><span class="help-desc">Open detail panel</span></div>
+  <div class="help-row"><span class="help-key">Esc</span><span class="help-desc">Clear search / close panel</span></div>
+  <div class="help-row"><span class="help-key">?</span><span class="help-desc">Toggle this help</span></div>
+</div>
 <script>
 const stateIcons = { busy: '●', waiting: '◐', idle: '○', dead: '✕' };
 let selectedId = null;
+let selectedIndex = -1;
 let allSessions = [];
+let filteredSessions = [];
 let activeFilter = null;
 let searchQuery = '';
 
 // Search input
 document.getElementById('search').addEventListener('input', function() {
   searchQuery = this.value.trim().toLowerCase();
+  selectedIndex = -1;
   renderFiltered();
+});
+
+function toggleHelp() {
+  document.getElementById('help-overlay').classList.toggle('open');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  const searchEl = document.getElementById('search');
+  const searchFocused = document.activeElement === searchEl;
+
+  // / — focus search (always)
+  if (e.key === '/' && !searchFocused) {
+    e.preventDefault();
+    searchEl.focus();
+    searchEl.select();
+    return;
+  }
+
+  // Escape — clear search and close detail panel
+  if (e.key === 'Escape') {
+    if (searchFocused) {
+      searchEl.blur();
+    }
+    searchEl.value = '';
+    searchQuery = '';
+    selectedIndex = -1;
+    renderFiltered();
+    const panel = document.getElementById('detail');
+    panel.classList.remove('open');
+    document.getElementById('timeline').classList.remove('open');
+    selectedId = null;
+    document.getElementById('help-overlay').classList.remove('open');
+    return;
+  }
+
+  // Don't intercept typing in search
+  if (searchFocused) return;
+
+  // ? — toggle help overlay
+  if (e.key === '?') {
+    e.preventDefault();
+    toggleHelp();
+    return;
+  }
+
+  // j — move selection down
+  if (e.key === 'j') {
+    e.preventDefault();
+    if (filteredSessions.length === 0) return;
+    selectedIndex = Math.min(selectedIndex + 1, filteredSessions.length - 1);
+    renderFiltered();
+    return;
+  }
+
+  // k — move selection up
+  if (e.key === 'k') {
+    e.preventDefault();
+    if (filteredSessions.length === 0) return;
+    selectedIndex = Math.max(selectedIndex - 1, 0);
+    if (selectedIndex < 0) selectedIndex = 0;
+    renderFiltered();
+    return;
+  }
+
+  // Enter — open detail for selected row
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (selectedIndex >= 0 && selectedIndex < filteredSessions.length) {
+      selectSession(filteredSessions[selectedIndex].id);
+    }
+    return;
+  }
 });
 
 function connect() {
@@ -399,7 +511,7 @@ function renderFiltered() {
 
   // Apply search + state filter
   const q = searchQuery;
-  let filtered = allSessions.filter(s => {
+  filteredSessions = allSessions.filter(s => {
     if (activeFilter && s.state !== activeFilter) return false;
     if (q) {
       const haystack = (s.project + ' ' + s.id + ' ' + (s.working_on || '') + ' ' + (s.git_branch || '')).toLowerCase();
@@ -407,6 +519,13 @@ function renderFiltered() {
     }
     return true;
   });
+  let filtered = filteredSessions;
+  // Clamp selectedIndex to valid range
+  if (filteredSessions.length === 0) {
+    selectedIndex = -1;
+  } else {
+    selectedIndex = Math.max(-1, Math.min(selectedIndex, filteredSessions.length - 1));
+  }
 
   // Group by project
   const groups = {};
@@ -431,8 +550,9 @@ function renderFiltered() {
 
       groups[project].forEach(s => {
         const row = document.createElement('tr');
-        row.className = 'state-' + s.state + (s.id === selectedId ? ' selected' : '');
-        row.onclick = () => selectSession(s.id);
+        const sIdx = filteredSessions.indexOf(s);
+        row.className = 'state-' + s.state + (s.id === selectedId || sIdx === selectedIndex ? ' selected' : '');
+        row.onclick = () => { selectedIndex = filteredSessions.indexOf(s); selectSession(s.id); };
         const ago = timeAgo(new Date(s.started_at));
         const branchLabel = s.git_branch ? escapeHtml(s.git_branch) + (s.git_dirty ? ' *' : '') : '-';
         const branchStyle = s.git_dirty ? 'color:var(--yellow)' : 'color:var(--cyan)';
