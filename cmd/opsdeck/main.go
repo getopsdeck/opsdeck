@@ -361,6 +361,12 @@ func runList() {
 		return
 	}
 
+	if len(enriched) == 0 {
+		fmt.Println("No Claude Code sessions found.")
+		fmt.Println("Start a session with 'claude' and OpsDeck will detect it automatically.")
+		return
+	}
+
 	// Check for --active flag: only show busy/waiting.
 	activeOnly := false
 	for _, arg := range os.Args[2:] {
