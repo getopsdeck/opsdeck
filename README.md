@@ -1,5 +1,10 @@
 # OpsDeck
 
+[![CI](https://github.com/getopsdeck/opsdeck/actions/workflows/ci.yml/badge.svg)](https://github.com/getopsdeck/opsdeck/actions)
+[![Release](https://img.shields.io/github/v/release/getopsdeck/opsdeck)](https://github.com/getopsdeck/opsdeck/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Report](https://goreportcard.com/badge/github.com/getopsdeck/opsdeck)](https://goreportcard.com/report/github.com/getopsdeck/opsdeck)
+
 **Chief of Staff for Claude Code** — monitor all your sessions from a single terminal.
 
 ![OpsDeck Demo](demo.gif)
