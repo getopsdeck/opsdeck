@@ -315,34 +315,31 @@ func (s *Server) handleAPITimeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	home, _ := os.UserHomeDir()
-	projectsDir := filepath.Join(home, ".claude", "projects")
-	sessionsDir := filepath.Join(home, ".claude", "sessions")
-
-	// Find the transcript for this session.
-	raw, _ := discovery.ScanSessions(sessionsDir)
-	for _, rs := range raw {
-		if rs.ID == sessionID {
-			transcriptPath := discovery.FindTranscriptPath(projectsDir, rs.CWD, rs.ID)
-			if transcriptPath == "" {
-				http.Error(w, "no transcript found", http.StatusNotFound)
-				return
-			}
-
-			since := time.Now().Add(-24 * time.Hour)
-			timeline, err := intel.ExtractTimeline(transcriptPath, since)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(timeline)
-			return
+	// Use snapshot to find the transcript path (no ScanSessions needed).
+	s.snapshot.mu.RLock()
+	var transcriptPath string
+	for _, sv := range s.snapshot.sessions {
+		if sv.ID == sessionID {
+			transcriptPath = sv.TranscriptPath
+			break
 		}
 	}
+	s.snapshot.mu.RUnlock()
 
-	http.Error(w, "session not found", http.StatusNotFound)
+	if transcriptPath == "" {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
+	since := time.Now().Add(-24 * time.Hour)
+	timeline, err := intel.ExtractTimeline(transcriptPath, since)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(timeline)
 }
 
 // handleAPIBrief returns the daily brief as JSON.

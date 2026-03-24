@@ -87,16 +87,12 @@ func main() {
 			runExport()
 			return
 		case "clean":
-		runClean()
-		return
-	case "mcp-serve":
-		mcpServer := opsmcp.NewServer()
-		if err := mcpServer.Run(context.Background(), &sdkmcp.StdioTransport{}); err != nil {
-			fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	case "web", "serve":
+			runClean()
+			return
+		case "mcp-serve":
+			runMCPServer()
+			return
+		case "web", "serve":
 			addr := "localhost:7070"
 			if len(os.Args) > 2 {
 				addr = os.Args[2]
@@ -158,6 +154,9 @@ Actions:
   watch        Monitor + macOS notifications on state changes
   clean        Show dead sessions for cleanup
 
+Integration:
+  mcp-serve    Start MCP server (JSON-RPC over stdio, for Claude Code)
+
 Advanced:
   ai-brief     AI morning brief via claude -p (costs tokens)
   version      Show version
@@ -185,30 +184,22 @@ func runWatch() {
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
 
-	// Show current state summary before watching.
-	sessions, _ := discovery.ScanSessions(sessionsDir)
+	// Show current state summary using shared monitor layer.
+	enriched := monitor.Snapshot(sessionsDir, projectsDir)
 	busy, waiting, idle, dead := 0, 0, 0, 0
-	for _, s := range sessions {
-		alive := discovery.CheckSession(s.PID, s.StartedAt)
-		tp := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
-		la := s.StartedAt
-		if tp != "" {
-			if t, err := discovery.ReadLastActivity(tp); err == nil && !t.IsZero() {
-				la = t
-			}
-		}
-		switch discovery.ClassifyState(alive, la) {
-		case discovery.StateBusy:
+	for _, s := range enriched {
+		switch s.State {
+		case "busy":
 			busy++
-		case discovery.StateWaiting:
+		case "waiting":
 			waiting++
-		case discovery.StateIdle:
+		case "idle":
 			idle++
-		case discovery.StateDead:
+		case "dead":
 			dead++
 		}
 	}
-	fmt.Printf("Watching %d sessions (● %d busy, ◐ %d waiting, ○ %d idle, ✕ %d dead)\n", len(sessions), busy, waiting, idle, dead)
+	fmt.Printf("Watching %d sessions (● %d busy, ◐ %d waiting, ○ %d idle, ✕ %d dead)\n", len(enriched), busy, waiting, idle, dead)
 	fmt.Println("Alerts on state changes. Ctrl+C to stop.")
 
 	lastStates := make(map[string]string)
@@ -294,32 +285,27 @@ func runStatus() {
 	sessionsDir := filepath.Join(home, ".claude", "sessions")
 	projectsDir := filepath.Join(home, ".claude", "projects")
 
-	sessions, _ := discovery.ScanSessions(sessionsDir)
+	enriched := monitor.Snapshot(sessionsDir, projectsDir)
 	busy, waiting, idle := 0, 0, 0
 	var topWait string
 	var topWaitDur time.Duration
 
-	for _, s := range sessions {
-		alive := discovery.CheckSession(s.PID, s.StartedAt)
-		tp := discovery.FindTranscriptPath(projectsDir, s.CWD, s.ID)
-		la := s.StartedAt
-		if tp != "" {
-			if t, err := discovery.ReadLastActivity(tp); err == nil && !t.IsZero() {
-				la = t
-			}
-		}
-		state := discovery.ClassifyState(alive, la)
-		switch state {
-		case discovery.StateBusy:
+	for _, s := range enriched {
+		switch s.State {
+		case "busy":
 			busy++
-		case discovery.StateWaiting:
+		case "waiting":
 			waiting++
-			d := time.Since(la)
-			if d > topWaitDur {
-				topWaitDur = d
-				topWait = s.ProjectName
+			if s.TranscriptPath != "" {
+				if la, err := discovery.ReadLastActivity(s.TranscriptPath); err == nil && !la.IsZero() {
+					d := time.Since(la)
+					if d > topWaitDur {
+						topWaitDur = d
+						topWait = s.Project
+					}
+				}
 			}
-		case discovery.StateIdle:
+		case "idle":
 			idle++
 		}
 	}
@@ -671,4 +657,14 @@ func runExport() {
 	}
 
 	fmt.Printf("Brief exported to %s\n", filename)
+}
+
+// runMCPServer starts the MCP server on stdio. All logging goes to stderr
+// so that the JSON-RPC protocol on stdout is not disrupted.
+func runMCPServer() {
+	srv := opsmcp.NewServer()
+	if err := srv.Run(context.Background(), &sdkmcp.StdioTransport{}); err != nil {
+		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+		os.Exit(1)
+	}
 }

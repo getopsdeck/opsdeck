@@ -4,7 +4,7 @@
 
 ## Project Status
 
-v1.3.0 released + MCP server in development.
+v1.4.0 released. MCP server shipped.
 GitHub: https://github.com/getopsdeck/opsdeck
 CI green (macOS + Linux). 13,000+ lines of Go, 47% test coverage.
 
@@ -18,7 +18,7 @@ internal/tui/                 — Bubble Tea TUI dashboard
 internal/tui/components/      — table, statusbar
 internal/tui/views/           — dashboard layout
 internal/web/                 — HTTP + SSE web dashboard with keyboard shortcuts
-internal/mcp/                 — MCP server (in progress)
+internal/mcp/                 — MCP server (JSON-RPC over stdio, 4 tools)
 ```
 
 ### Commands (15)
